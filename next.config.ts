@@ -1,27 +1,22 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com', // Для аватарок Google
-        port: '',
-        pathname: '/**',
+        hostname: 'lh3.googleusercontent.com',
       },
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com', // Для картинок товаров Unsplash
-        port: '',
-        pathname: '/**',
+        hostname: 'images.unsplash.com',
       },
     ],
   },
-  // Добавляем игнорирование ошибок линтера, чтобы билд прошел успешно
+  // Игнорируем ошибки линтера при билде
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Добавляем игнорирование ошибок типов на этапе сборки
+  // Игнорируем ошибки TypeScript при билде
   typescript: {
     ignoreBuildErrors: true,
   },

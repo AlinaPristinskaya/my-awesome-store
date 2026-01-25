@@ -47,7 +47,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  orders        Order[]   // Связь с заказами: у одного юзера много заказов
+  orders        Order[]   
   cart          Cart?
 }
 
@@ -71,16 +71,18 @@ model Category {
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String
   price       Float
   images      String[]
+  stock       Int         @default(10)
   categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   cartItems   CartItem[]
+  orderItems  OrderItem[]
 }
 
 // ---------------------------------------------------------
@@ -89,7 +91,7 @@ model Product {
 
 model Order {
   id              String      @id @default(cuid())
-  userId          String?     // Опционально: заказ может сделать и гость
+  userId          String?
   user            User?       @relation(fields: [userId], references: [id])
   customerName    String
   customerEmail   String
@@ -98,6 +100,8 @@ model Order {
   status          String      @default("PENDING")
   items           OrderItem[]
   createdAt       DateTime    @default(now())
+
+  @@index([userId])
 }
 
 model OrderItem {
@@ -105,10 +109,15 @@ model OrderItem {
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  name      String
-  price     Float
+  product   Product @relation(fields: [productId], references: [id])
+  name      String  
+  price     Float   
   quantity  Int
 }
+
+// ---------------------------------------------------------
+// 5. КОРЗИНА (Cart и CartItem)
+// ---------------------------------------------------------
 
 model Cart {
   id        String     @id @default(cuid())
@@ -127,5 +136,5 @@ model CartItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int      @default(1)
 
-  @@unique([cartId, productId]) // Чтобы один и тот же товар не дублировался, а росло количество
+  @@unique([cartId, productId])
 }
