@@ -1,0 +1,88 @@
+import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import ProductList from "@/components/ProductList";
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ categoryId?: string; query?: string }>;
+}) {
+  // Раскрываем параметры поиска
+  const { categoryId, query } = await searchParams;
+
+  // 1. Получаем категории для фильтров
+  const categories = await prisma.category.findMany();
+
+  // 2. Получаем товары с фильтрацией
+  const products = await prisma.product.findMany({
+    where: {
+      AND: [
+        categoryId ? { categoryId } : {},
+        query ? { name: { contains: query, mode: 'insensitive' } } : {},
+      ]
+    },
+    include: {
+      category: true,
+    }
+  });
+
+  return (
+    <div className="min-h-screen bg-white text-black p-8">
+      {/* Header Section */}
+      <header className="max-w-6xl mx-auto mb-16 text-center">
+        <h1 className="text-6xl font-black tracking-tighter mb-6 italic">
+          Curated <span className="text-indigo-600">Essentials.</span>
+        </h1>
+        <p className="text-gray-400 max-w-lg mx-auto mb-10 font-medium text-lg">
+          High-quality products designed for your daily life.
+        </p>
+        
+        {/* Search Bar */}
+        <form className="max-w-xl mx-auto relative group">
+          <input
+            type="text"
+            name="query"
+            defaultValue={query}
+            placeholder="Search items..."
+            className="w-full px-8 py-4 rounded-3xl bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all shadow-sm text-black"
+          />
+        </form>
+
+        {/* Categories Navigation */}
+        <div className="flex flex-wrap justify-center gap-3 mt-10">
+          <Link
+            href="/"
+            className={`px-8 py-2.5 rounded-full text-sm font-bold border transition-all ${
+              !categoryId ? "bg-black text-white border-black shadow-lg" : "bg-white text-gray-400 border-gray-100 hover:border-black hover:text-black"
+            }`}
+          >
+            All Items
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/?categoryId=${cat.id}${query ? `&query=${query}` : ''}`}
+              className={`px-8 py-2.5 rounded-full text-sm font-bold border transition-all ${
+                categoryId === cat.id ? "bg-black text-white border-black shadow-lg" : "bg-white text-gray-400 border-gray-100 hover:border-black hover:text-black"
+              }`}
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+      </header>
+
+      {/* Animated Products List */}
+      <div className="max-w-6xl mx-auto">
+        {products.length > 0 ? (
+          <ProductList products={products} />
+        ) : (
+          <div className="text-center py-32">
+            <h3 className="text-2xl font-bold text-gray-300">Nothing found.</h3>
+            <Link href="/" className="text-indigo-600 font-bold mt-4 block hover:underline">Clear all filters</Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
