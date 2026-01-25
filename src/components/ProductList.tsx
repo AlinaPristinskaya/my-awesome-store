@@ -7,7 +7,7 @@ import AddToCartButton from '@/components/ui/AddToCartButton';
 import { Product } from '@prisma/client';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 
-// Расширяем тип, так как Prisma возвращает товар вместе с объектом категории
+// Расширяем тип для работы с категорией
 interface ProductWithCategory extends Product {
   category: {
     name: string;
@@ -34,15 +34,19 @@ export default function ProductList({ products }: ProductListProps) {
           {/* Изображение товара */}
           <Link 
             href={`/product/${product.id}`}
-            className="relative aspect-4/5 w-full mb-6 overflow-hidden rounded-2rem bg-gray-50 border border-gray-100 block shadow-sm hover:shadow-xl transition-all duration-500"
+            // ИСПРАВЛЕНО: Добавлены квадратные скобки для нестандартных значений
+            className="relative aspect-[4/5] w-full mb-6 overflow-hidden rounded-[2rem] bg-gray-50 border border-gray-100 block shadow-sm hover:shadow-xl transition-all duration-500"
           >
             <Image
               src={product.images[0]}
               alt={product.name}
               fill
+              // Добавили priority для первых трех карточек для ускорения LCP
+              priority={index < 3}
               className="object-cover group-hover:scale-110 transition-transform duration-700"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+            
             {/* Бейдж категории */}
             <div className="absolute top-4 left-4">
               <span className="bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-black">
@@ -54,19 +58,20 @@ export default function ProductList({ products }: ProductListProps) {
           {/* Инфо о товаре */}
           <div className="px-2 grow flex flex-col">
             <Link href={`/product/${product.id}`} className="block group-hover:text-indigo-600 transition-colors text-black">
-              <h2 className="text-xl font-bold tracking-tight mb-1">{product.name}</h2>
+              <h2 className="text-xl font-bold tracking-tight mb-1 uppercase italic">{product.name}</h2>
             </Link>
-            <p className="text-gray-400 text-sm mb-4 line-clamp-1 italic">
+            <p className="text-gray-400 text-sm mb-4 line-clamp-1 italic font-medium">
               {product.description}
             </p>
             
-            <div className="mt-auto flex items-center justify-between">
-              {/* Исправленная цена для предотвращения Hydration Error */}
+            <div className="mt-auto flex items-center justify-between gap-4">
+              {/* Цена */}
               <span className="text-2xl font-black text-black">
                 {hasHydrated ? `$${product.price.toLocaleString('en-US')}` : '...'}
               </span>
               
-              <div className="w-140px">
+              {/* Кнопка добавления */}
+              <div className="w-[140px]">
                 <AddToCartButton product={product} />
               </div>
             </div>

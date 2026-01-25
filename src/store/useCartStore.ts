@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { syncCartWithDb } from '@/lib/cart-actions';
 
-// Описание товара
 interface CartItem {
   id: string;
   name: string;
@@ -13,8 +13,9 @@ interface CartItem {
 interface CartState {
   items: CartItem[];
   addItem: (item: CartItem) => void;
-  reduceItem: (id: string) => void; // Для кнопки "минус"
-  removeItem: (id: string) => void; // Для кнопки "удалить" (корзина)
+  reduceItem: (id: string) => void;
+  removeItem: (id: string) => void;
+  setItems: (items: CartItem[]) => void; // ДОБАВИЛИ ЭТО
   clearCart: () => void;
   totalPrice: () => number;
 }
@@ -43,13 +44,16 @@ export const useCartStore = create<CartState>()(
             .map((item) =>
               item.id === id ? { ...item, quantity: item.quantity - 1 } : item
             )
-            .filter((item) => item.quantity > 0), // Если стало 0, товар удаляется
+            .filter((item) => item.quantity > 0),
         })),
 
       removeItem: (id) =>
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
         })),
+
+      // ДОБАВИЛИ ЭТУ ФУНКЦИЮ
+      setItems: (newItems) => set({ items: newItems }),
 
       clearCart: () => set({ items: [] }),
 
@@ -63,3 +67,14 @@ export const useCartStore = create<CartState>()(
     }
   )
 );
+
+// Синхронизация (оставляем как было)
+if (typeof window !== 'undefined') {
+  let timeout: NodeJS.Timeout;
+  useCartStore.subscribe((state) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      syncCartWithDb(state.items);
+    }, 1000);
+  });
+}

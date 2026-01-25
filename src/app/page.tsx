@@ -2,29 +2,48 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import ProductList from "@/components/ProductList";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // Дополнительная страховка: перепроверять каждые 0 секунд
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ categoryId?: string; query?: string }>;
 }) {
-  // Раскрываем параметры поиска
-  const { categoryId, query } = await searchParams;
+  // 1. Раскрываем параметры
+  const params = await searchParams;
+  const categoryId = params.categoryId;
+  const query = params.query;
 
-  // 1. Получаем категории для фильтров
-  const categories = await prisma.category.findMany();
+  // 2. Формируем чистый объект фильтрации
+  // Если параметров нет, where останется пустым {}, и Prisma вернет все товары
+  const where: any = {};
 
-  // 2. Получаем товары с фильтрацией
-  const products = await prisma.product.findMany({
-    where: {
-      AND: [
-        categoryId ? { categoryId } : {},
-        query ? { name: { contains: query, mode: 'insensitive' } } : {},
-      ]
-    },
-    include: {
-      category: true,
-    }
-  });
+  if (categoryId) {
+    where.categoryId = categoryId;
+  }
+
+  if (query) {
+    where.name = {
+      contains: query,
+      mode: 'insensitive',
+    };
+  }
+
+  // 3. Получаем данные из базы
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { name: 'asc' }
+    }),
+    prisma.product.findMany({
+      where, 
+      include: { 
+        category: true 
+      },
+      orderBy: { 
+        createdAt: 'desc' 
+      }
+    })
+  ]);
 
   return (
     <div className="min-h-screen bg-white text-black p-8">
@@ -72,14 +91,16 @@ export default async function Home({
         </div>
       </header>
 
-      {/* Animated Products List */}
+      {/* Products List */}
       <div className="max-w-6xl mx-auto">
         {products.length > 0 ? (
           <ProductList products={products} />
         ) : (
           <div className="text-center py-32">
             <h3 className="text-2xl font-bold text-gray-300">Nothing found.</h3>
-            <Link href="/" className="text-indigo-600 font-bold mt-4 block hover:underline">Clear all filters</Link>
+            <Link href="/" className="text-indigo-600 font-bold mt-4 block hover:underline">
+              Clear all filters
+            </Link>
           </div>
         )}
       </div>

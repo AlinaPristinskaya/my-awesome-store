@@ -5,7 +5,6 @@ import { useCartStore } from "@/store/useCartStore";
 import Link from "next/link";
 import Image from "next/image";
 
-// We wrap the content in a separate function to use it with dynamic import
 function CartContent() {
   const { items, addItem, reduceItem, removeItem, totalPrice } = useCartStore();
 
@@ -93,15 +92,19 @@ function CartContent() {
             ${totalPrice().toLocaleString()}
           </div>
         </div>
-        <button className="bg-white text-black px-12 py-4 rounded-full font-bold hover:bg-gray-100 transition-all transform hover:scale-105 w-full md:w-auto">
+        
+        {/* КНОПКА ПЕРЕХОДА В ЧЕКАУТ */}
+        <Link 
+          href="/checkout" 
+          className="bg-white text-black px-12 py-4 rounded-full font-bold hover:bg-gray-100 transition-all transform hover:scale-105 w-full md:w-auto text-center"
+        >
           Checkout Now
-        </button>
+        </Link>
       </div>
     </div>
   );
 }
 
-// We export with SSR disabled to prevent hydration errors and console warnings
 export default dynamic(() => Promise.resolve(CartContent), {
   ssr: false,
   loading: () => (
