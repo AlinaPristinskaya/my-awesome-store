@@ -6,24 +6,47 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { createOrder } from "@/lib/order"; // ИМПОРТИРУЕМ НАШ ЭКШЕН
 
 function CheckoutContent() {
   const { items, totalPrice, clearCart } = useCartStore();
   const [isOrdered, setIsOrdered] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // СОСТОЯНИЕ ЗАГРУЗКИ
   const router = useRouter();
 
-  // Redirect to home if cart is empty and not just ordered
   useEffect(() => {
     if (items.length === 0 && !isOrdered) {
       router.push("/");
     }
   }, [items, isOrdered, router]);
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Logic for sending to database will go here in Sprint 3
-    setIsOrdered(true);
-    clearCart();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    
+    // Подготавливаем данные для базы
+    const orderData = {
+      customerName: formData.get("fullName") as string,
+      customerEmail: formData.get("email") as string,
+      customerAddress: formData.get("address") as string,
+    };
+
+    try {
+      const result = await createOrder(orderData);
+
+      if (result.success) {
+        setIsOrdered(true);
+        clearCart();
+      } else {
+        alert(result.error || "Something went wrong");
+      }
+    } catch (error) {
+      alert("Failed to connect to server");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isOrdered) {
@@ -57,15 +80,33 @@ function CheckoutContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold uppercase text-gray-400">Full Name</label>
-                  <input required type="text" placeholder="John Doe" className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" />
+                  <input 
+                    name="fullName" // ДОБАВИЛИ NAME
+                    required 
+                    type="text" 
+                    placeholder="John Doe" 
+                    className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" 
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold uppercase text-gray-400">Email Address</label>
-                  <input required type="email" placeholder="john@example.com" className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" />
+                  <input 
+                    name="email" // ДОБАВИЛИ NAME
+                    required 
+                    type="email" 
+                    placeholder="john@example.com" 
+                    className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" 
+                  />
                 </div>
                 <div className="md:col-span-2 flex flex-col gap-2">
                   <label className="text-xs font-bold uppercase text-gray-400">Shipping Address</label>
-                  <input required type="text" placeholder="123 Street Name, City" className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" />
+                  <input 
+                    name="address" // ДОБАВИЛИ NAME
+                    required 
+                    type="text" 
+                    placeholder="123 Street Name, City" 
+                    className="p-3 bg-gray-50 rounded-xl border border-gray-100 focus:border-black outline-none transition-colors" 
+                  />
                 </div>
               </div>
 
@@ -75,8 +116,12 @@ function CheckoutContent() {
                 <span className="text-xl font-black">💵</span>
               </div>
 
-              <button type="submit" className="w-full mt-10 bg-black text-white py-4 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-xl shadow-gray-200">
-                Place Order — ${totalPrice().toLocaleString()}
+              <button 
+                type="submit" 
+                disabled={isSubmitting} // ДИЗЕЙБЛИМ КНОПКУ
+                className="w-full mt-10 bg-black text-white py-4 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 disabled:bg-gray-400"
+              >
+                {isSubmitting ? "Processing..." : `Place Order — $${totalPrice().toLocaleString()}`}
               </button>
             </form>
           </div>
@@ -124,7 +169,6 @@ function CheckoutContent() {
   );
 }
 
-// Disable SSR to avoid hydration issues with LocalStorage
 export default dynamic(() => Promise.resolve(CheckoutContent), {
   ssr: false,
   loading: () => <div className="min-h-screen bg-gray-50" />
