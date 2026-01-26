@@ -3,7 +3,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-// 1. Сохранение корзины в базу
 export async function syncCartWithDb(items: any[]) {
   const session = await auth();
   if (!session?.user?.id) return;
@@ -15,6 +14,7 @@ export async function syncCartWithDb(items: any[]) {
       create: { userId: session.user.id },
     });
 
+    // Используем транзакцию, чтобы данные были согласованы
     await prisma.$transaction([
       prisma.cartItem.deleteMany({ where: { cartId: cart.id } }),
       prisma.cartItem.createMany({
@@ -30,7 +30,6 @@ export async function syncCartWithDb(items: any[]) {
   }
 }
 
-// 2. Получение корзины из базы
 export async function getDbCart() {
   const session = await auth();
   if (!session?.user?.id) return null;

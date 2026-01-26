@@ -15,7 +15,7 @@ interface CartState {
   addItem: (item: CartItem) => void;
   reduceItem: (id: string) => void;
   removeItem: (id: string) => void;
-  setItems: (items: CartItem[]) => void; // ДОБАВИЛИ ЭТО
+  setItems: (items: CartItem[]) => void;
   clearCart: () => void;
   totalPrice: () => number;
 }
@@ -52,7 +52,6 @@ export const useCartStore = create<CartState>()(
           items: state.items.filter((item) => item.id !== id),
         })),
 
-      // ДОБАВИЛИ ЭТУ ФУНКЦИЮ
       setItems: (newItems) => set({ items: newItems }),
 
       clearCart: () => set({ items: [] }),
@@ -68,7 +67,6 @@ export const useCartStore = create<CartState>()(
   )
 );
 
-// Синхронизация (оставляем как было)
 if (typeof window !== 'undefined') {
   let timeout: NodeJS.Timeout;
   useCartStore.subscribe((state) => {
