@@ -6,19 +6,21 @@ import Image from 'next/image';
 import { useCartStore } from '@/store/useCartStore';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, LogIn, LogOut } from 'lucide-react';
+import { ShoppingBag, LogIn, LogOut, Package, Shield } from 'lucide-react'; // Используем простую иконку Shield
 import { signIn, signOut, useSession } from "next-auth/react";
-import { getDbCart } from '@/lib/cart-actions'; // Мы создадим этот экшен следующим шагом
+import { getDbCart } from '@/lib/cart-actions';
+import { Plus, ShieldCheck } from "lucide-react";
 
 export default function Navbar() {
-  const { data: session } = useSession();
-  const { items, setItems } = useCartStore(); // setItems нужен для загрузки из БД
+  const { data: session, status } = useSession();
+  const { items, setItems } = useCartStore();
   const hasHydrated = useHasHydrated();
   
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
-  // СИНХРОНИЗАЦИЯ ПРИ ВХОДЕ:
-  // Как только сессия становится активной, запрашиваем корзину из Neon DB
+  // Проверка админа (максимально просто)
+  const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com".toLowerCase();
+
   useEffect(() => {
     if (session?.user) {
       const loadCart = async () => {
@@ -36,22 +38,44 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
         
         {/* Logo */}
-        <Link href="/" className="text-2xl font-black tracking-tighter hover:opacity-70 transition">
+        <Link href="/" className="text-2xl font-black tracking-tighter">
           NEXT<span className="text-indigo-600">STORE</span>
         </Link>
-
-        {/* Navigation & Auth */}
         <div className="flex items-center gap-6">
-          <Link 
-            href="/" 
-            className="hidden sm:block text-sm font-bold hover:text-indigo-600 transition tracking-widest"
-          >
+          <Link href="/" className="hidden sm:block text-sm font-bold tracking-widest">
             CATALOG
           </Link>
           
           <div className="flex items-center gap-4 border-l pl-6 border-gray-100">
-            {session?.user ? (
+            {/* Ждем загрузку сессии, чтобы не было ошибок */}
+            {status !== "loading" && session?.user ? (
               <div className="flex items-center gap-4">
+                
+                {/* Ссылка для Админа */}
+                {isAdmin && (
+                  <Link 
+                    href="/admin/orders" 
+                    className="flex items-center gap-2 text-[10px] font-black bg-black text-white px-3 py-2 rounded-xl hover:bg-gray-800 transition-all uppercase"
+                  >
+                    <Shield className="w-3 h-3" />
+                    <span>Admin</span>
+                  </Link>
+                )}
+<Link 
+      href="/admin/add-product" 
+      className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-all font-black text-[10px] uppercase tracking-widest"
+    >
+      <Plus className="w-3 h-3" />
+      Add Item
+    </Link>
+                <Link 
+                  href="/orders" 
+                  className="flex items-center gap-2 text-xs font-bold bg-gray-50 px-3 py-2 rounded-xl border border-gray-100"
+                >
+                  <Package className="w-4 h-4" />
+                  <span className="hidden md:inline uppercase">My Orders</span>
+                </Link>
+
                 <div className="relative h-9 w-9 overflow-hidden rounded-full border border-gray-200">
                   <Image 
                     src={session.user.image || '/placeholder-user.png'} 
@@ -68,13 +92,13 @@ export default function Navbar() {
                   <LogOut className="w-5 h-5" />
                 </button>
               </div>
-            ) : (
+            ) : status !== "loading" && (
               <button 
                 onClick={() => signIn("google")}
                 className="flex items-center gap-2 text-sm font-bold hover:text-indigo-600 transition"
               >
                 <LogIn className="w-5 h-5" />
-                <span className="hidden sm:inline">SIGN IN</span>
+                <span className="hidden sm:inline uppercase">Sign In</span>
               </button>
             )}
           </div>
@@ -82,23 +106,15 @@ export default function Navbar() {
           {/* Cart Icon */}
           <Link 
             href="/cart" 
-            className="relative group p-2.5 bg-gray-50 rounded-2xl hover:bg-indigo-50 transition-all duration-300 shadow-sm border border-gray-100"
+            className="relative p-2.5 bg-gray-50 rounded-2xl border border-gray-100"
           >
-            <ShoppingBag className="w-6 h-6 text-gray-700 group-hover:text-indigo-600 transition-colors" />
+            <ShoppingBag className="w-6 h-6 text-gray-700" />
             
-            <AnimatePresence mode="wait">
-              {hasHydrated && totalItems > 0 && (
-                <motion.span
-                  key={totalItems}
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[11px] font-bold h-5 w-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm"
-                >
-                  {totalItems}
-                </motion.span>
-              )}
-            </AnimatePresence>
+            {hasHydrated && totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[11px] font-bold h-5 w-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                {totalItems}
+              </span>
+            )}
           </Link>
         </div>
       </div>

@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import AddToCartButton from '@/components/ui/AddToCartButton';
+import DeleteButton from '@/components/DeleteButton'; // Импортируем кнопку удаления
 import { Product } from '@prisma/client';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 
-// Расширяем тип для работы с категорией
 interface ProductWithCategory extends Product {
   category: {
     name: string;
@@ -16,9 +16,10 @@ interface ProductWithCategory extends Product {
 
 interface ProductListProps {
   products: ProductWithCategory[];
+  isAdmin: boolean; // Добавляем новый проп
 }
 
-export default function ProductList({ products }: ProductListProps) {
+export default function ProductList({ products, isAdmin }: ProductListProps) {
   const hasHydrated = useHasHydrated();
 
   return (
@@ -29,31 +30,36 @@ export default function ProductList({ products }: ProductListProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: index * 0.1 }}
-          className="group flex flex-col"
+          className="group flex flex-col relative" // Добавили relative для позиционирования кнопки
         >
           {/* Изображение товара */}
-          <Link 
-            href={`/product/${product.id}`}
-            // ИСПРАВЛЕНО: Добавлены квадратные скобки для нестандартных значений
-            className="relative aspect-[4/5] w-full mb-6 overflow-hidden rounded-[2rem] bg-gray-50 border border-gray-100 block shadow-sm hover:shadow-xl transition-all duration-500"
-          >
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              fill
-              // Добавили priority для первых трех карточек для ускорения LCP
-              priority={index < 3}
-              className="object-cover group-hover:scale-110 transition-transform duration-700"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
+          <div className="relative aspect-[4/5] w-full mb-6 overflow-hidden rounded-[2rem] bg-gray-50 border border-gray-100 shadow-sm group-hover:shadow-xl transition-all duration-500">
             
-            {/* Бейдж категории */}
-            <div className="absolute top-4 left-4">
-              <span className="bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-black">
-                {product.category.name}
-              </span>
-            </div>
-          </Link>
+            {/* КНОПКА УДАЛЕНИЯ (только для админа) */}
+            {isAdmin && (
+              <div className="absolute top-4 right-4 z-30">
+                <DeleteButton id={product.id} />
+              </div>
+            )}
+
+            <Link href={`/product/${product.id}`} className="block w-full h-full">
+              <Image
+                src={product.images[0]}
+                alt={product.name}
+                fill
+                priority={index < 3}
+                className="object-cover group-hover:scale-110 transition-transform duration-700"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+              
+              {/* Бейдж категории */}
+              <div className="absolute top-4 left-4">
+                <span className="bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-black">
+                  {product.category.name}
+                </span>
+              </div>
+            </Link>
+          </div>
 
           {/* Инфо о товаре */}
           <div className="px-2 grow flex flex-col">
@@ -65,12 +71,10 @@ export default function ProductList({ products }: ProductListProps) {
             </p>
             
             <div className="mt-auto flex items-center justify-between gap-4">
-              {/* Цена */}
               <span className="text-2xl font-black text-black">
                 {hasHydrated ? `$${product.price.toLocaleString('en-US')}` : '...'}
               </span>
               
-              {/* Кнопка добавления */}
               <div className="w-[140px]">
                 <AddToCartButton product={product} />
               </div>

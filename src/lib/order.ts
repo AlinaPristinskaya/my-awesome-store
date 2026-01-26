@@ -82,3 +82,21 @@ export async function createOrder(formData: OrderData) {
     return { error: "Произошла ошибка при создании заказа" };
   }
 }
+// Добавь это в src/lib/order.ts
+
+export async function updateOrderStatus(orderId: string, newStatus: string) {
+  const session = await auth();
+  
+  // Проверка на админа (по email для надежности)
+  if (session?.user?.email !== "alinaprystynska@gmail.com") {
+    throw new Error("Access denied");
+  }
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { status: newStatus },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/orders"); // Чтобы у пользователя тоже обновилось
+}

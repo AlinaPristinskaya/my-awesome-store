@@ -1,107 +1,112 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
-import AddToCartButton from "@/components/ui/AddToCartButton"; 
-import FadeIn from "@/components/FadeIn";
 import ProductList from "@/components/ProductList";
+import { auth } from "@/auth";
 
-interface ProductPageProps {
-  params: Promise<{ id: string }>;
-}
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export default async function ProductPage({ params }: ProductPageProps) {
-  // 1. Next.js 15 требует ожидания параметров
-  const { id } = await params;
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ categoryId?: string; query?: string }>;
+}) {
+  // 1. Получаем сессию и проверяем админа
+  const session = await auth();
+  const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
 
-  // 2. Загружаем товар
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: { category: true },
-  });
+  // 2. Раскрываем параметры поиска
+  const params = await searchParams;
+  const categoryId = params.categoryId;
+  const query = params.query;
 
-  if (!product) notFound();
+  // 3. Формируем фильтр
+  const where: any = {};
+  if (categoryId) {
+    where.categoryId = categoryId;
+  }
+  if (query) {
+    where.name = {
+      contains: query,
+      mode: 'insensitive',
+    };
+  }
 
-  // 3. Загружаем похожие товары (из той же категории)
-  const relatedProducts = await prisma.product.findMany({
-    where: {
-      categoryId: product.categoryId,
-      NOT: { id: product.id }, // Исключаем текущий товар
-    },
-    take: 3,
-    include: { category: true },
-  });
+  // 4. Загружаем категории и товары (products - с буквой 's')
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { name: 'asc' }
+    }),
+    prisma.product.findMany({
+      where, 
+      include: { 
+        category: true 
+      },
+      orderBy: { 
+        createdAt: 'desc' 
+      }
+    })
+  ]);
 
   return (
     <div className="min-h-screen bg-white text-black p-8">
-      <div className="max-w-6xl mx-auto">
-        <FadeIn>
-          {/* Кнопка назад */}
-          <div className="mb-12">
-            <Link 
-              href="/" 
-              className="text-sm font-bold uppercase tracking-widest hover:text-indigo-600 transition flex items-center gap-2"
+      {/* Header Section */}
+      <header className="max-w-6xl mx-auto mb-16 text-center">
+        <h1 className="text-6xl font-black tracking-tighter mb-6 italic">
+          Curated <span className="text-indigo-600">Essentials.</span>
+        </h1>
+        <p className="text-gray-400 max-w-lg mx-auto mb-10 font-medium text-lg">
+          High-quality products designed for your daily life.
+        </p>
+        
+        {/* Search Bar */}
+        <form className="max-w-xl mx-auto relative group">
+          <input
+            type="text"
+            name="query"
+            defaultValue={query}
+            placeholder="Search items..."
+            className="w-full px-8 py-4 rounded-3xl bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all shadow-sm text-black"
+          />
+        </form>
+
+        {/* Categories Navigation */}
+        <div className="flex flex-wrap justify-center gap-3 mt-10">
+          <Link
+            href="/"
+            className={`px-8 py-2.5 rounded-full text-sm font-bold border transition-all ${
+              !categoryId ? "bg-black text-white border-black shadow-lg" : "bg-white text-gray-400 border-gray-100 hover:border-black hover:text-black"
+            }`}
+          >
+            All Items
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/?categoryId=${cat.id}${query ? `&query=${query}` : ''}`}
+              className={`px-8 py-2.5 rounded-full text-sm font-bold border transition-all ${
+                categoryId === cat.id ? "bg-black text-white border-black shadow-lg" : "bg-white text-gray-400 border-gray-100 hover:border-black hover:text-black"
+              }`}
             >
-              <span className="text-xl">←</span> Back to Store
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+      </header>
+
+      {/* Products List Section */}
+      <div className="max-w-6xl mx-auto">
+        {products.length > 0 ? (
+          /* Передаем и список товаров, и статус админа */
+          <ProductList products={products} isAdmin={isAdmin} />
+        ) : (
+          <div className="text-center py-32">
+            <h3 className="text-2xl font-bold text-gray-300">Nothing found.</h3>
+            <Link href="/" className="text-indigo-600 font-bold mt-4 block hover:underline">
+              Clear all filters
             </Link>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24 mb-32">
-            {/* Изображение товара */}
-            <div className="relative aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
-              <Image
-                src={product.images[0]}
-                alt={product.name}
-                fill
-                className="object-cover"
-                priority
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            </div>
-
-            {/* Контентная часть */}
-            <div className="flex flex-col justify-center">
-              <span className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em] mb-4">
-                {product.category.name}
-              </span>
-              
-              <h1 className="text-5xl lg:text-6xl font-black tracking-tighter mb-6 italic uppercase">
-                {product.name}
-              </h1>
-              
-              <p className="text-3xl font-black mb-8 text-black/90">
-                ${product.price.toLocaleString('en-US')}
-              </p>
-              
-              <div className="h-px w-20 bg-indigo-600 mb-8" /> {/* Декоративная линия */}
-              
-              <p className="text-gray-500 mb-10 leading-relaxed text-lg font-medium italic">
-                {product.description}
-              </p>
-              
-              <div className="max-w-xs">
-                <AddToCartButton product={product} />
-              </div>
-            </div>
-          </div>
-
-          {/* Секция похожих товаров */}
-          {relatedProducts.length > 0 && (
-            <section className="border-t border-gray-100 pt-20">
-              <div className="flex justify-between items-end mb-12">
-                <div>
-                  <h2 className="text-4xl font-black tracking-tighter uppercase italic">
-                    Related <span className="text-indigo-600">Items</span>
-                  </h2>
-                  <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-2">
-                    Complete your collection
-                  </p>
-                </div>
-              </div>
-              <ProductList products={relatedProducts} />
-            </section>
-          )}
-        </FadeIn>
+        )}
       </div>
     </div>
   );

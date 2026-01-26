@@ -1,21 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import ProductList from "@/components/ProductList";
+import { auth } from "@/auth"; // Добавили импорт auth
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0; // Дополнительная страховка: перепроверять каждые 0 секунд
+export const revalidate = 0;
+
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ categoryId?: string; query?: string }>;
 }) {
-  // 1. Раскрываем параметры
+  // 1. Получаем сессию и проверяем, является ли пользователь админом
+  const session = await auth();
+  const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
+
+  // 2. Раскрываем параметры
   const params = await searchParams;
   const categoryId = params.categoryId;
   const query = params.query;
 
-  // 2. Формируем чистый объект фильтрации
-  // Если параметров нет, where останется пустым {}, и Prisma вернет все товары
+  // 3. Формируем чистый объект фильтрации
   const where: any = {};
 
   if (categoryId) {
@@ -29,7 +34,7 @@ export default async function Home({
     };
   }
 
-  // 3. Получаем данные из базы
+  // 4. Получаем данные из базы
   const [categories, products] = await Promise.all([
     prisma.category.findMany({
       orderBy: { name: 'asc' }
@@ -94,7 +99,8 @@ export default async function Home({
       {/* Products List */}
       <div className="max-w-6xl mx-auto">
         {products.length > 0 ? (
-          <ProductList products={products} />
+          /* ПЕРЕДАЕМ isAdmin В КОМПОНЕНТ */
+          <ProductList products={products} isAdmin={isAdmin} />
         ) : (
           <div className="text-center py-32">
             <h3 className="text-2xl font-bold text-gray-300">Nothing found.</h3>
