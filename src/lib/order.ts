@@ -11,15 +11,17 @@ export async function createOrder(data: {
   customerAddress: string;
   items: any[];
   paymentMethod: string;
+  userId?: string; // Добавили передачу ID пользователя
 }) {
   try {
     const totalAmount = data.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const orderReference = `ORDER_${Date.now()}`;
 
-    // Створюємо замовлення в базі
+    // 1. Создаем заказ в базе с привязкой к userId
     const order = await prisma.order.create({
       data: {
         id: orderReference,
+        userId: data.userId, // Привязываем к аккаунту, если пользователь вошел
         customerName: data.customerName,
         customerEmail: data.customerEmail,
         customerAddress: data.customerAddress,
@@ -37,12 +39,12 @@ export async function createOrder(data: {
       },
     });
 
-    // Якщо післяплата - просто повертаємо успіх
+    // Если наложенный платеж
     if (data.paymentMethod === "CASH_ON_DELIVERY") {
       return { success: true, orderId: order.id };
     }
 
-    // Якщо WayForPay - готуємо дані для фронтенда (форму)
+    // 2. Логика WayForPay
     const WAYFORPAY_LOGIN = process.env.WAYFORPAY_MERCHANT_LOGIN || "";
     const WAYFORPAY_KEY = process.env.WAYFORPAY_SECRET_KEY || "";
     const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -54,11 +56,21 @@ export async function createOrder(data: {
     const productPrices = data.items.map(i => i.price);
 
     const signatureString = [
-      WAYFORPAY_LOGIN, domain, orderReference, orderDate, totalAmount, "UAH",
-      productNames.join(";"), productCounts.join(";"), productPrices.join(";")
+      WAYFORPAY_LOGIN, 
+      domain, 
+      orderReference, 
+      orderDate, 
+      totalAmount, 
+      "UAH",
+      productNames.join(";"), 
+      productCounts.join(";"), 
+      productPrices.join(";")
     ].join(";");
 
-    const signature = crypto.createHmac("md5", WAYFORPAY_KEY).update(signatureString, "utf8").digest("hex");
+    const signature = crypto
+      .createHmac("md5", WAYFORPAY_KEY)
+      .update(signatureString, "utf8")
+      .digest("hex");
 
     return {
       success: true,
@@ -74,6 +86,8 @@ export async function createOrder(data: {
         productCount: productCounts,
         productPrice: productPrices,
         serviceUrl: `${SITE_URL}/api/callback/wayforpay`,
+        returnUrl: `${SITE_URL}/checkout/success`,
+        declineUrl: `${SITE_URL}/checkout`,
       }
     };
 
@@ -81,4 +95,23 @@ export async function createOrder(data: {
     console.error("Order error:", error);
     return { success: false, error: error.message };
   }
+}
+
+// ФУНКЦИЯ ДЛЯ АДМИНКИ (Смена статуса по кругу)
+export async function updateOrderStatus(orderId: string, currentStatus: string) {
+  let nextStatus: OrderStatus;
+  
+  if (currentStatus === "NEW") {
+    nextStatus = "PROCESSING";
+  } else if (currentStatus === "PROCESSING") {
+    nextStatus = "COMPLETED";
+  } else {
+    // Если статус уже COMPLETED (или любой другой), возвращаем в NEW
+    nextStatus = "NEW";
+  }
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { status: nextStatus }
+  });
 }
