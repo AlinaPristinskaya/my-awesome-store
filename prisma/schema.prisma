@@ -1,4 +1,4 @@
-// 1. Настройки генератора и подключения
+// 1. Налаштування генератора та підключення
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,8 +8,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- ТИПИ ДАНИХ (ENUMS) ---
+
+enum OrderStatus {
+  NEW          
+  PROCESSING   
+  COMPLETED    
+}
+
+enum PaymentMethod {
+  STRIPE            
+  CASH_ON_DELIVERY  
+  WAYFORPAY
+}
+
 // ---------------------------------------------------------
-// 2. МОДЕЛИ АВТОРИЗАЦИИ (Auth.js)
+// 2. МОДЕЛІ АВТОРИЗАЦІЇ (Auth.js)
 // ---------------------------------------------------------
 
 model Account {
@@ -61,7 +75,7 @@ model VerificationToken {
 }
 
 // ---------------------------------------------------------
-// 3. КАТАЛОГ (Category и Product)
+// 3. КАТАЛОГ (Category та Product)
 // ---------------------------------------------------------
 
 model Category {
@@ -77,10 +91,10 @@ model Product {
   description String
   price       Float
   images      String[]
-  weight      Float    @default(0.5) // вес
-  length      Float    @default(10)  // длина
-  width       Float    @default(10)  // ширина
-  height      Float    @default(10)  // высота
+  weight      Float    @default(0.5)
+  length      Float    @default(10)
+  width       Float    @default(10)
+  height      Float    @default(10)
   stock       Int         @default(10)
   categoryId  String
   category    Category    @relation(fields: [categoryId], references: [id])
@@ -91,20 +105,25 @@ model Product {
 }
 
 // ---------------------------------------------------------
-// 4. ЗАКАЗЫ (Order и OrderItem)
+// 4. ЗАМОВЛЕННЯ
 // ---------------------------------------------------------
 
 model Order {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
   userId          String?
-  user            User?       @relation(fields: [userId], references: [id])
+  user            User?         @relation(fields: [userId], references: [id])
   customerName    String
   customerEmail   String
   customerAddress String
   totalAmount     Float
-  status          String      @default("PENDING")
+  
+  status          OrderStatus   @default(NEW)
+  paymentMethod   PaymentMethod @default(CASH_ON_DELIVERY)
+  isPaid          Boolean       @default(false)
+  stripeSessionId String?       @unique 
+  
   items           OrderItem[]
-  createdAt       DateTime    @default(now())
+  createdAt       DateTime      @default(now()) // Виправлено ✅
 
   @@index([userId])
 }
@@ -121,7 +140,7 @@ model OrderItem {
 }
 
 // ---------------------------------------------------------
-// 5. КОРЗИНА (Cart и CartItem)
+// 5. КОШИК
 // ---------------------------------------------------------
 
 model Cart {
@@ -129,7 +148,7 @@ model Cart {
   userId    String     @unique
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     CartItem[]
-  createdAt DateTime   @default(now())
+  createdAt DateTime   @default(now()) // Виправлено ✅
   updatedAt DateTime   @updatedAt
 }
 

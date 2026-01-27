@@ -1,102 +1,84 @@
-"use server"
+"use server";
 
-import { auth } from "@/auth"; 
-import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { PrismaClient, OrderStatus, PaymentMethod } from "@prisma/client";
+import crypto from "crypto";
 
-interface OrderData {
+const prisma = new PrismaClient();
+
+export async function createOrder(data: {
   customerName: string;
   customerEmail: string;
   customerAddress: string;
-}
-
-export async function createOrder(formData: OrderData) {
-  // 1. Получаем сессию
-  const session = await auth();
-  
-  // 2. Успокаиваем TypeScript: проверяем наличие сессии, юзера и его ID
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return { error: "Нужно авторизоваться, чтобы сделать заказ" };
-  }
-
+  items: any[];
+  paymentMethod: string;
+}) {
   try {
-    // 3. Находим корзину пользователя
-    const cart = await prisma.cart.findUnique({
-      where: { userId: userId },
-      include: { 
-        items: { 
-          include: { product: true } 
-        } 
-      }
+    const totalAmount = data.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const orderReference = `ORDER_${Date.now()}`;
+
+    // Створюємо замовлення в базі
+    const order = await prisma.order.create({
+      data: {
+        id: orderReference,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerAddress: data.customerAddress,
+        totalAmount: totalAmount,
+        status: OrderStatus.NEW,
+        paymentMethod: data.paymentMethod as PaymentMethod,
+        items: {
+          create: data.items.map((item) => ({
+            productId: item.id,
+            name: item.name,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+          })),
+        },
+      },
     });
 
-    if (!cart || cart.items.length === 0) {
-      return { error: "Ваша корзина пуста" };
+    // Якщо післяплата - просто повертаємо успіх
+    if (data.paymentMethod === "CASH_ON_DELIVERY") {
+      return { success: true, orderId: order.id };
     }
 
-    // 4. Считаем общую сумму
-    const totalAmount = cart.items.reduce((sum, item) => {
-      return sum + item.product.price * item.quantity;
-    }, 0);
+    // Якщо WayForPay - готуємо дані для фронтенда (форму)
+    const WAYFORPAY_LOGIN = process.env.WAYFORPAY_MERCHANT_LOGIN || "";
+    const WAYFORPAY_KEY = process.env.WAYFORPAY_SECRET_KEY || "";
+    const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const domain = SITE_URL.replace(/^https?:\/\//, "");
+    const orderDate = Math.floor(Date.now() / 1000);
 
-    // 5. Запускаем транзакцию в базе данных
-    const order = await prisma.$transaction(async (tx) => {
-      // Создаем запись заказа
-      const newOrder = await tx.order.create({
-        data: {
-          userId: userId,
-          customerName: formData.customerName,
-          customerEmail: formData.customerEmail,
-          customerAddress: formData.customerAddress,
-          totalAmount: totalAmount,
-          status: "PENDING",
-          items: {
-            create: cart.items.map((item) => ({
-              productId: item.productId,
-              name: item.product.name,
-              price: item.product.price,
-              quantity: item.quantity,
-            })),
-          },
-        },
-      });
+    const productNames = data.items.map(i => i.name);
+    const productCounts = data.items.map(i => i.quantity);
+    const productPrices = data.items.map(i => i.price);
 
-      // Очищаем корзину пользователя после успешного создания заказа
-      await tx.cartItem.deleteMany({
-        where: { cartId: cart.id },
-      });
+    const signatureString = [
+      WAYFORPAY_LOGIN, domain, orderReference, orderDate, totalAmount, "UAH",
+      productNames.join(";"), productCounts.join(";"), productPrices.join(";")
+    ].join(";");
 
-      return newOrder;
-    });
+    const signature = crypto.createHmac("md5", WAYFORPAY_KEY).update(signatureString, "utf8").digest("hex");
 
-    // 6. Обновляем кэш страниц, чтобы корзина сразу стала пустой в интерфейсе
-    revalidatePath("/cart");
-    revalidatePath("/orders");
-    
-    return { success: true, orderId: order.id };
+    return {
+      success: true,
+      paymentData: {
+        merchantAccount: WAYFORPAY_LOGIN,
+        merchantDomainName: domain,
+        merchantSignature: signature,
+        orderReference,
+        orderDate,
+        amount: totalAmount,
+        currency: "UAH",
+        productName: productNames,
+        productCount: productCounts,
+        productPrice: productPrices,
+        serviceUrl: `${SITE_URL}/api/callback/wayforpay`,
+      }
+    };
 
-  } catch (error) {
-    console.error("ORDER_CREATION_ERROR:", error);
-    return { error: "Произошла ошибка при создании заказа" };
+  } catch (error: any) {
+    console.error("Order error:", error);
+    return { success: false, error: error.message };
   }
-}
-// Добавь это в src/lib/order.ts
-
-export async function updateOrderStatus(orderId: string, newStatus: string) {
-  const session = await auth();
-  
-  // Проверка на админа (по email для надежности)
-  if (session?.user?.email !== "alinaprystynska@gmail.com") {
-    throw new Error("Access denied");
-  }
-
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: newStatus },
-  });
-
-  revalidatePath("/admin/orders");
-  revalidatePath("/orders"); // Чтобы у пользователя тоже обновилось
 }

@@ -8,25 +8,41 @@ export async function syncCartWithDb(items: any[]) {
   if (!session?.user?.id) return;
 
   try {
+    // 1. Знаходимо або створюємо кошик користувача
     const cart = await prisma.cart.upsert({
       where: { userId: session.user.id },
       update: {},
       create: { userId: session.user.id },
     });
 
-    // Используем транзакцию, чтобы данные были согласованы
-    await prisma.$transaction([
-      prisma.cartItem.deleteMany({ where: { cartId: cart.id } }),
-      prisma.cartItem.createMany({
-        data: items.map(item => ({
+    // 2. Видаляємо всі існуючі товари в цьому кошику
+    await prisma.cartItem.deleteMany({ 
+      where: { cartId: cart.id } 
+    });
+
+    // 3. Якщо в кошику є товари, додаємо їх
+    if (items && items.length > 0) {
+      // Прибираємо дублікати за ID товару, щоб уникнути помилки P2002
+      const uniqueItemsMap = new Map();
+      items.forEach(item => {
+        if (item.id) {
+          uniqueItemsMap.set(item.id, item);
+        }
+      });
+
+      const uniqueItems = Array.from(uniqueItemsMap.values());
+
+      await prisma.cartItem.createMany({
+        data: uniqueItems.map(item => ({
           cartId: cart.id,
           productId: item.id,
-          quantity: item.quantity,
+          quantity: item.quantity || 1,
         })),
-      }),
-    ]);
+        skipDuplicates: true, // Додатковий захист Prisma
+      });
+    }
   } catch (error) {
-    console.error("Failed to sync cart:", error);
+    console.error("❌ Failed to sync cart:", error);
   }
 }
 
@@ -44,17 +60,20 @@ export async function getDbCart() {
       }
     });
 
-    if (!cart) return null;
+    if (!cart || !cart.items) return null;
 
-    return cart.items.map(item => ({
-      id: item.product.id,
-      name: item.product.name,
-      price: item.product.price,
-      image: item.product.images[0],
-      quantity: item.quantity
-    }));
+    // Повертаємо масив товарів у форматі, який очікує ваш Zustand store
+    return cart.items
+      .filter(item => item.product) // Захист на випадок, якщо товар було видалено з бази
+      .map(item => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        image: item.product.images[0] || '', 
+        quantity: item.quantity
+      }));
   } catch (error) {
-    console.error("Error fetching cart:", error);
+    console.error("❌ Error fetching cart:", error);
     return null;
   }
 }

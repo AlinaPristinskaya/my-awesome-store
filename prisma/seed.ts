@@ -5,9 +5,20 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting seeding...');
 
-  // 1. Очищаем старые данные (порядок важен из-за связей)
+  // 1. Очищаємо дані у ПРАВИЛЬНОМУ порядку
+  // Спочатку видаляємо елементи замовлень та самі замовлення
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  
+  // Потім кошики (якщо є зв'язки)
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+
+  // Тільки ТЕПЕР можна видаляти товари та категорії
   await prisma.product.deleteMany({});
   await prisma.category.deleteMany({});
+
+  console.log('🧹 Database cleared!');
 
   // 2. Создаем категории
   const catStyle = await prisma.category.create({ 
