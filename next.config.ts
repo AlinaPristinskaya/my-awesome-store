@@ -16,13 +16,26 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      // ДОДАЄМО НОВІ ДОМЕНИ:
+      {
+        protocol: 'https',
+        hostname: 'garnagospodynya.com.ua',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.ua.prom.st',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.prom.ua',
+      },
     ],
   },
-  // Игнорируем ошибки линтера при билде
+  // Ігноруємо помилки лінтера при білді
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Игнорируем ошибки TypeScript при билде
+  // Ігноруємо помилки TypeScript при білді
   typescript: {
     ignoreBuildErrors: true,
   },
