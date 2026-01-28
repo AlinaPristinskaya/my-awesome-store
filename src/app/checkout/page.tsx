@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { createOrder } from "@/lib/order"; // Наш оновлений екшн
+import Image from "next/image"; // Додано для картинок
+import { createOrder } from "@/lib/order";
 import { getNPCities, getNPWarehouses } from "@/lib/shipping-actions";
-import { MapPin, Building2, Package, Loader2, ChevronDown, X, CheckCircle2, CreditCard, Banknote } from "lucide-react";
+import { MapPin, Building2, Package, Loader2, ChevronDown, CheckCircle2, CreditCard, Banknote } from "lucide-react";
 
 function CheckoutContent() {
   const { items, totalPrice, clearCart } = useCartStore();
@@ -14,7 +15,6 @@ function CheckoutContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentType, setPaymentType] = useState<'WAYFORPAY' | 'CASH_ON_DELIVERY'>('CASH_ON_DELIVERY');
 
-  // Стани доставки
   const [deliveryService, setDeliveryService] = useState<'NP' | 'UP'>('NP');
   const [citySearch, setCitySearch] = useState('');
   const [cities, setCities] = useState<{label: string, value: string}[]>([]);
@@ -30,7 +30,6 @@ function CheckoutContent() {
     return items.reduce((acc, item: any) => acc + (item.weight || 0.5) * item.quantity, 0);
   }, [items]);
 
-  // Пошук міст
   useEffect(() => {
     const delayDebounce = setTimeout(async () => {
       if (citySearch.length >= 2 && !selectedCity) {
@@ -48,7 +47,6 @@ function CheckoutContent() {
     return () => clearTimeout(delayDebounce);
   }, [citySearch, selectedCity]);
 
-  // Завантаження відділень
   useEffect(() => {
     if (selectedCity && deliveryService === 'NP') {
       setIsLoadingWarehouses(true);
@@ -85,7 +83,6 @@ function CheckoutContent() {
           clearCart();
           setIsOrdered(true);
         } else if (result.paymentData) {
-          // Якщо онлайн оплата — створюємо форму і відправляємо на WayForPay
           const form = document.createElement("form");
           form.method = "POST";
           form.action = "https://secure.wayforpay.com/pay";
@@ -131,8 +128,8 @@ function CheckoutContent() {
         <h1 className="text-5xl font-black mb-10 tracking-tighter italic">Оформлення</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2">
-            <form onSubmit={handlePlaceOrder} className="space-y-6">
+          <div className="lg:col-span-2 space-y-6">
+            <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-6">
               
               {/* 1. Контакти */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
@@ -154,8 +151,8 @@ function CheckoutContent() {
                 </h2>
 
                 <div className="flex gap-4 mb-8">
-                  <button type="button" onClick={() => setDeliveryService('NP')} className={`flex-1 py-4 rounded-2xl border-2 font-black transition-all text-xs uppercase ${deliveryService === 'NP' ? 'border-red-500 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>Нова Пошта</button>
-                  <button type="button" onClick={() => setDeliveryService('UP')} className={`flex-1 py-4 rounded-2xl border-2 font-black transition-all text-xs uppercase ${deliveryService === 'UP' ? 'border-indigo-500 bg-indigo-50 text-indigo-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>Укрпошта</button>
+                  <button type="button" onClick={() => setDeliveryService('NP')} className={`flex-1 py-4 rounded-2xl border-2 font-black transition-all text-[10px] uppercase ${deliveryService === 'NP' ? 'border-red-500 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>Нова Пошта</button>
+                  <button type="button" onClick={() => setDeliveryService('UP')} className={`flex-1 py-4 rounded-2xl border-2 font-black transition-all text-[10px] uppercase ${deliveryService === 'UP' ? 'border-indigo-500 bg-indigo-50 text-indigo-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>Укрпошта</button>
                 </div>
 
                 {deliveryService === 'NP' ? (
@@ -233,36 +230,60 @@ function CheckoutContent() {
                   </button>
                 </div>
               </div>
-
-              <button disabled={isSubmitting || items.length === 0} className="w-full bg-black text-white py-6 rounded-[2rem] font-black text-xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:bg-gray-200 uppercase tracking-tighter">
-                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : `Замовити — $${totalPrice()}`}
-              </button>
             </form>
           </div>
 
-          {/* Сайдбар */}
+          {/* САЙДБАР З КАРТИНКАМИ (Задача 3) */}
           <div className="lg:col-span-1">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 sticky top-24">
-              <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                <Package className="w-5 h-5" /> Кошик
+              <h2 className="text-xl font-black mb-6 flex items-center gap-2 tracking-tight uppercase italic text-indigo-600">
+                <Package className="w-5 h-5 text-black" /> Кошик
               </h2>
-              <div className="space-y-4 mb-6">
+              
+              <div className="space-y-6 mb-8 overflow-y-auto max-h-[40vh] no-scrollbar">
                 {items.map(item => (
-                  <div key={item.id} className="flex justify-between text-[11px] font-bold">
-                    <span className="text-gray-400">{item.quantity}x {item.name}</span>
-                    <span>${(item.price * item.quantity)}</span>
+                  <div key={item.id} className="flex gap-4 items-center group">
+                    {/* МІНІАТЮРА */}
+                    <div className="relative h-14 w-14 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+                      <Image 
+                        src={item.image || '/placeholder-product.png'} 
+                        alt={item.name} 
+                        fill 
+                        className="object-cover group-hover:scale-110 transition-transform duration-300"
+                        unoptimized
+                      />
+                    </div>
+                    {/* ІНФО */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-tight text-black line-clamp-1">
+                        {item.name}
+                      </p>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-[9px] font-bold text-gray-400">{item.quantity} шт.</span>
+                        <span className="text-[11px] font-black text-black">{item.price * item.quantity} грн</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex justify-between items-center">
-                  <span className="font-black text-2xl uppercase tracking-tighter">Разом</span>
-                  <span className="font-black text-3xl text-black">${totalPrice()}</span>
+
+              <div className="pt-6 border-t border-gray-100">
+                <div className="flex justify-between items-end mb-2">
+                  <span className="font-black text-[10px] uppercase tracking-widest text-gray-400">Всього</span>
+                  <span className="font-black text-3xl text-black leading-none">{totalPrice()} <small className="text-sm">грн</small></span>
                 </div>
-                <p className="text-[9px] font-black text-gray-300 mt-2 uppercase tracking-widest">
-                  Вага замовлення: {totalWeight.toFixed(2)} кг
+                <p className="text-[9px] font-black text-indigo-300 mt-4 uppercase tracking-[0.2em] text-right">
+                  Вага: {totalWeight.toFixed(2)} кг
                 </p>
               </div>
+
+              <button 
+                form="checkout-form"
+                disabled={isSubmitting || items.length === 0} 
+                className="w-full bg-black text-white h-16 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all disabled:bg-gray-200 mt-8 shadow-xl shadow-indigo-100/20 active:scale-95"
+              >
+                {isSubmitting ? <Loader2 className="animate-spin mx-auto w-5 h-5" /> : `Замовити`}
+              </button>
             </div>
           </div>
         </div>

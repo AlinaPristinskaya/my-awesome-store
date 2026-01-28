@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import AddToCartButton from '@/components/ui/AddToCartButton';
-import DeleteButton from '@/components/DeleteButton'; // Импортируем кнопку удаления
+import DeleteButton from '@/components/DeleteButton';
 import { Product } from '@prisma/client';
 import { useHasHydrated } from '@/hooks/useHasHydrated';
 
@@ -16,7 +16,7 @@ interface ProductWithCategory extends Product {
 
 interface ProductListProps {
   products: ProductWithCategory[];
-  isAdmin: boolean; // Добавляем новый проп
+  isAdmin: boolean;
 }
 
 export default function ProductList({ products, isAdmin }: ProductListProps) {
@@ -24,64 +24,72 @@ export default function ProductList({ products, isAdmin }: ProductListProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-      {products.map((product, index) => (
-        <motion.div
-          key={product.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: index * 0.1 }}
-          className="group flex flex-col relative" // Добавили relative для позиционирования кнопки
-        >
-          {/* Изображение товара */}
-          <div className="relative aspect-[4/5] w-full mb-6 overflow-hidden rounded-[2rem] bg-gray-50 border border-gray-100 shadow-sm group-hover:shadow-xl transition-all duration-500">
-            
-            {/* КНОПКА УДАЛЕНИЯ (только для админа) */}
-            {isAdmin && (
-              <div className="absolute top-4 right-4 z-30">
-                <DeleteButton id={product.id} />
-              </div>
-            )}
+      {products.map((product, index) => {
+        const mainImage = product.images && product.images.length > 0 
+          ? product.images[0] 
+          : '/placeholder-product.png';
 
-            <Link href={`/product/${product.id}`} className="block w-full h-full">
-              <Image
-                src={product.images[0]}
-                alt={product.name}
-                fill
-                priority={index < 3}
-                className="object-cover group-hover:scale-110 transition-transform duration-700"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              />
+        return (
+          <motion.div
+            key={product.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: index * 0.1 }}
+            className="group flex flex-col relative"
+          >
+            {/* Зображення товару */}
+            <div className="relative aspect-[4/5] w-full mb-6 overflow-hidden rounded-[2rem] bg-gray-50 border border-gray-100 shadow-sm group-hover:shadow-xl transition-all duration-500">
               
-              {/* Бейдж категории */}
-              <div className="absolute top-4 left-4">
-                <span className="bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-black">
-                  {product.category.name}
-                </span>
-              </div>
-            </Link>
-          </div>
+              {/* КНОПКА ВИДАЛЕННЯ (адмін) */}
+              {isAdmin && (
+                <div className="absolute top-4 right-4 z-30">
+                  <DeleteButton id={product.id} />
+                </div>
+              )}
 
-          {/* Инфо о товаре */}
-          <div className="px-2 grow flex flex-col">
-            <Link href={`/product/${product.id}`} className="block group-hover:text-indigo-600 transition-colors text-black">
-              <h2 className="text-xl font-bold tracking-tight mb-1 uppercase italic">{product.name}</h2>
-            </Link>
-            <p className="text-gray-400 text-sm mb-4 line-clamp-1 italic font-medium">
-              {product.description}
-            </p>
-            
-            <div className="mt-auto flex items-center justify-between gap-4">
-              <span className="text-2xl font-black text-black">
-                {hasHydrated ? `$${product.price.toLocaleString('en-US')}` : '...'}
-              </span>
+              <Link href={`/product/${product.id}`} className="block w-full h-full">
+                <Image
+                  src={mainImage}
+                  alt={product.name}
+                  fill
+                  priority={index < 3}
+                  unoptimized 
+                  className="object-cover group-hover:scale-110 transition-transform duration-700"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+                
+                {/* БЕЙДЖ КАТЕГОРІЇ ВИДАЛЕНО ЗВІДСИ ДЛЯ ЧИСТОТИ ДИЗАЙНУ */}
+              </Link>
+            </div>
+
+            {/* Інфо про товар */}
+            <div className="px-2 grow flex flex-col">
+              <Link href={`/product/${product.id}`} className="block group-hover:text-indigo-600 transition-colors text-black">
+                <h2 className="text-lg font-black tracking-tighter mb-1 uppercase leading-tight line-clamp-2">
+                  {product.name}
+                </h2>
+              </Link>
               
-              <div className="w-[140px]">
-                <AddToCartButton product={product} />
+              <p className="text-gray-400 text-[12px] mb-4 line-clamp-2 font-medium italic">
+                {product.description?.replace(/<[^>]*>?/gm, '') || "Опис відсутній"}
+              </p>
+              
+              <div className="mt-auto flex items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase text-gray-300 tracking-wider">Ціна</span>
+                  <span className="text-xl font-black text-black">
+                    {hasHydrated ? `${product.price.toLocaleString('uk-UA')} грн` : '...'}
+                  </span>
+                </div>
+                
+                <div className="w-[140px]">
+                  <AddToCartButton product={product} />
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        );
+      })}
     </div>
   );
 }

@@ -20,25 +20,43 @@ export default async function Home({
   const categoryId = params.categoryId;
   const query = params.query;
 
+  // 1. Отримуємо всі категорії для побудови дерева та фільтрації
+  const allCategories = await prisma.category.findMany({ 
+    orderBy: { name: 'asc' } 
+  });
+
   const where: any = {};
-  if (categoryId) where.categoryId = categoryId;
+
+  // ЛОГІКА ФІЛЬТРАЦІЇ БАТЬКІВСЬКОЇ КАТЕГОРІЇ
+  if (categoryId) {
+    const selectedCategory = allCategories.find(c => c.id === categoryId);
+    
+    if (selectedCategory) {
+      // Знаходимо всі ID категорій, які є цією категорією або її нащадками
+      // Наприклад, для "Для кухні" знайде і "Для кухні / Посуд", і "Для кухні / Текстиль"
+      const relatedCategoryIds = allCategories
+        .filter(c => c.name.startsWith(selectedCategory.name))
+        .map(c => c.id);
+
+      where.categoryId = { in: relatedCategoryIds };
+    }
+  }
+
   if (query) {
     where.name = { contains: query, mode: 'insensitive' };
   }
 
-  const [categories, products] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: 'asc' } }),
-    prisma.product.findMany({
-      where, 
-      include: { category: true },
-      orderBy: { createdAt: 'desc' }
-    })
-  ]);
+  // 2. Завантажуємо товари за сформованим фільтром
+  const products = await prisma.product.findMany({
+    where, 
+    include: { category: true },
+    orderBy: { createdAt: 'desc' }
+  });
 
-  // ГРУПУВАННЯ КАТЕГОРІЙ
+  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ (Твоя логіка)
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
 
-  categories.forEach(cat => {
+  allCategories.forEach(cat => {
     const parts = cat.name.split('/');
     const parentName = parts[0].trim();
     
@@ -53,7 +71,6 @@ export default async function Home({
       categoryTree[parentName].children.push({ ...cat, displayName: childName });
     }
   });
- 
 
   return (
     <div className="min-h-screen bg-white text-black">
@@ -82,14 +99,12 @@ export default async function Home({
       </header>
 
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 pb-20">
-        {/* ТІЛЬКИ ОДИН САЙДБАР ТУТ */}
         <CategorySidebar 
           categoryTree={categoryTree} 
           currentCategoryId={categoryId} 
           query={query} 
         />
 
-        {/* СПИСОК ТОВАРІВ */}
         <section className="flex-1">
           {products.length > 0 ? (
             <ProductList products={products} isAdmin={isAdmin} />
