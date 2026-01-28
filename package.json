@@ -18,7 +18,7 @@
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^11.15.0",
+    "framer-motion": "^11.18.2",
     "lucide-react": "^0.468.0",
     "next": "^16.1.4",
     "next-auth": "^5.0.0-beta.30",
@@ -29,6 +29,7 @@
     "react-hot-toast": "^2.4.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
