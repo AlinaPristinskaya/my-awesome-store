@@ -1,117 +1,99 @@
 "use server";
 
-import { PrismaClient, OrderStatus, PaymentMethod } from "@prisma/client";
-import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+// Чітко визначаємо, що повертає функція
+export type OrderResponse = {
+  success: boolean;
+  orderId?: string;
+  error?: string;
+  paymentData?: any;
+};
 
-export async function createOrder(data: {
-  customerName: string;
-  customerEmail: string;
-  customerAddress: string;
-  items: any[];
-  paymentMethod: string;
-  userId?: string; // Добавили передачу ID пользователя
-}) {
+export async function createOrder(data: any): Promise<OrderResponse> {
+  console.log("--- СЕРВЕР: Початок створення замовлення ---");
+
   try {
-    const totalAmount = data.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const orderReference = `ORDER_${Date.now()}`;
+    // 1. Перевірка даних
+    if (!data.phone) {
+      throw new Error("Телефон є обов'язковим полем");
+    }
 
-    // 1. Создаем заказ в базе с привязкой к userId
+    // 2. Зберігаємо в базу Prisma/Neon
     const order = await prisma.order.create({
       data: {
-        id: orderReference,
-        userId: data.userId, // Привязываем к аккаунту, если пользователь вошел
-        customerName: data.customerName,
-        customerEmail: data.customerEmail,
-        customerAddress: data.customerAddress,
-        totalAmount: totalAmount,
-        status: OrderStatus.NEW,
-        paymentMethod: data.paymentMethod as PaymentMethod,
+        customerName: data.customerName || "Гість",
+        customerEmail: data.customerEmail || "",
+        customerAddress: data.customerAddress || "Не вказано",
+        paymentMethod: data.paymentMethod,
+        totalAmount: data.items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0),
         items: {
-          create: data.items.map((item) => ({
+          create: data.items.map((item: any) => ({
             productId: item.id,
             name: item.name,
-            price: Number(item.price),
-            quantity: Number(item.quantity),
+            price: item.price,
+            quantity: item.quantity,
           })),
         },
       },
     });
 
-    // Если наложенный платеж
-    if (data.paymentMethod === "CASH_ON_DELIVERY") {
-      return { success: true, orderId: order.id };
+    console.log("✅ База даних: Замовлення збережено під ID:", order.id);
+
+    // 3. TELEGRAM сповіщення
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    // Логування для діагностики (тільки в терміналі сервера)
+    console.log("🤖 Перевірка Telegram ключів:");
+    console.log("- Token:", botToken ? "Знайдено (OK)" : "ВІДСУТНІЙ (Помилка)");
+    console.log("- Chat ID:", chatId ? "Знайдено (OK)" : "ВІДСУТНІЙ (Помилка)");
+
+    if (botToken && chatId) {
+      const message = `
+🚀 *НОВЕ ЗАМОВЛЕННЯ #${order.id.toString().slice(-5)}*
+---------------------------
+👤 *Клієнт:* ${data.customerName}
+📞 *Тел:* ${data.phone}
+📍 *Доставка:* ${data.customerAddress}
+💳 *Оплата:* ${data.paymentMethod === 'WAYFORPAY' ? '💳 Картка' : '💵 Післяплата'}
+💰 *Сума:* ${order.totalAmount} грн
+
+📦 *Товари:*
+${data.items.map((i: any) => `• ${i.name} — ${i.quantity} шт.`).join('\n')}
+---------------------------
+🕒 ${new Date().toLocaleString('uk-UA')}
+      `;
+
+      const tgResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'Markdown',
+        }),
+      });
+
+      const tgResult = await tgResponse.json();
+      if (tgResult.ok) {
+        console.log("📱 Telegram: Повідомлення успішно надіслано!");
+      } else {
+        console.error("❌ Telegram API Error:", tgResult.description);
+      }
     }
 
-    // 2. Логика WayForPay
-    const WAYFORPAY_LOGIN = process.env.WAYFORPAY_MERCHANT_LOGIN || "";
-    const WAYFORPAY_KEY = process.env.WAYFORPAY_SECRET_KEY || "";
-    const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-    const domain = SITE_URL.replace(/^https?:\/\//, "");
-    const orderDate = Math.floor(Date.now() / 1000);
-
-    const productNames = data.items.map(i => i.name);
-    const productCounts = data.items.map(i => i.quantity);
-    const productPrices = data.items.map(i => i.price);
-
-    const signatureString = [
-      WAYFORPAY_LOGIN, 
-      domain, 
-      orderReference, 
-      orderDate, 
-      totalAmount, 
-      "UAH",
-      productNames.join(";"), 
-      productCounts.join(";"), 
-      productPrices.join(";")
-    ].join(";");
-
-    const signature = crypto
-      .createHmac("md5", WAYFORPAY_KEY)
-      .update(signatureString, "utf8")
-      .digest("hex");
-
-    return {
-      success: true,
-      paymentData: {
-        merchantAccount: WAYFORPAY_LOGIN,
-        merchantDomainName: domain,
-        merchantSignature: signature,
-        orderReference,
-        orderDate,
-        amount: totalAmount,
-        currency: "UAH",
-        productName: productNames,
-        productCount: productCounts,
-        productPrice: productPrices,
-        serviceUrl: `${SITE_URL}/api/callback/wayforpay`,
-        returnUrl: `${SITE_URL}/checkout/success`,
-        declineUrl: `${SITE_URL}/checkout`,
-      }
+    return { 
+      success: true, 
+      orderId: order.id, 
+      paymentData: null 
     };
 
   } catch (error: any) {
-    console.error("Order error:", error);
-    return { success: false, error: error.message };
+    console.error("❌ КРИТИЧНА ПОМИЛКА НА СЕРВЕРІ:", error.message);
+    return { 
+      success: false, 
+      error: error.message || "Сталася помилка на сервері" 
+    };
   }
-}
-
-// ФУНКЦИЯ ДЛЯ АДМИНКИ (Смена статуса по кругу)
-export async function updateOrderStatus(orderId: string, currentStatus: string) {
-  let nextStatus: OrderStatus;
-  
-  if (currentStatus === "NEW") {
-    nextStatus = "PROCESSING";
-  } else if (currentStatus === "PROCESSING") {
-    nextStatus = "COMPLETED";
-  } else {
-    // Если статус уже COMPLETED (или любой другой), возвращаем в NEW
-    nextStatus = "NEW";
-  }
-
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: nextStatus }
-  });
 }

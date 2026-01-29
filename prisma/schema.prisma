@@ -79,8 +79,8 @@ model VerificationToken {
 // ---------------------------------------------------------
 
 model Category {
-  id       String    @id @default(cuid())
-  name     String    @unique
+  id       String    @id // Будемо використовувати ID з SalesDrive
+  name     String    // Прибери тут @unique
   slug     String    @unique
   products Product[]
 }
