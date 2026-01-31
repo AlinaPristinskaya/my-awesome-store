@@ -20,6 +20,7 @@ export async function createProduct(formData: FormData) {
   const stock = parseInt(formData.get("stock") as string);   // Строка -> Целое число
   const categoryId = formData.get("categoryId") as string;
   const imageUrl = formData.get("imageUrl") as string;
+  const isFeatured = formData.get("isFeatured") === "true";
 
   // Проверка на заполненность (чтобы не отправить пустые данные)
   if (!name || !description || isNaN(price) || !categoryId || !imageUrl) {
@@ -34,6 +35,7 @@ export async function createProduct(formData: FormData) {
         price,
         stock,
         categoryId,
+        isFeatured,
         images: [imageUrl], // Prisma ждет массив строк
       },
     });

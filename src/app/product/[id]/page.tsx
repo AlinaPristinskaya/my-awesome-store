@@ -19,8 +19,6 @@ export default async function ProductPage({
 
   if (!product) notFound();
 
-  // Отримуємо картинки. Оскільки в Prisma це тепер string[], 
-  // перевірка стала набагато простішою.
   const allImages = Array.isArray(product.images) && product.images.length > 0
     ? (product.images as string[])
     : ['/placeholder-product.png'];
@@ -41,9 +39,9 @@ export default async function ProductPage({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-24">
-          {/* ГАЛЕРЕЯ: Тепер отримує чистий масив */}
           <div className="relative">
-             <ImageGallery images={allImages} />
+             {/* ПЕРЕДАЄМО ВІДЕО В ГАЛЕРЕЮ */}
+             <ImageGallery images={allImages} videoUrl={product.videoUrl} />
           </div>
 
           <div className="flex flex-col">

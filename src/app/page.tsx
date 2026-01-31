@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import ProductList from "@/components/ProductList";
 import { auth } from "@/auth";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react"; // Додав Star
 import CategorySidebar from "@/components/CategorySidebar";
 
 export const dynamic = 'force-dynamic';
@@ -27,17 +27,20 @@ export default async function Home({
 
   const where: any = {};
 
-  // ЛОГІКА ФІЛЬТРАЦІЇ БАТЬКІВСЬКОЇ КАТЕГОРІЇ
+  // --- ЛОГІКА ВІТРИНИ ---
+  // Якщо немає активного пошуку і не обрана категорія — показуємо тільки "Популярні"
+  const isBrowsing = categoryId || query;
+  if (!isBrowsing) {
+    where.isFeatured = true;
+  }
+
+  // ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ
   if (categoryId) {
     const selectedCategory = allCategories.find(c => c.id === categoryId);
-    
     if (selectedCategory) {
-      // Знаходимо всі ID категорій, які є цією категорією або її нащадками
-      // Наприклад, для "Для кухні" знайде і "Для кухні / Посуд", і "Для кухні / Текстиль"
       const relatedCategoryIds = allCategories
         .filter(c => c.name.startsWith(selectedCategory.name))
         .map(c => c.id);
-
       where.categoryId = { in: relatedCategoryIds };
     }
   }
@@ -46,24 +49,21 @@ export default async function Home({
     where.name = { contains: query, mode: 'insensitive' };
   }
 
-  // 2. Завантажуємо товари за сформованим фільтром
+  // 2. Завантажуємо товари
   const products = await prisma.product.findMany({
     where, 
     include: { category: true },
     orderBy: { createdAt: 'desc' }
   });
 
-  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ (Твоя логіка)
+  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
-
   allCategories.forEach(cat => {
     const parts = cat.name.split('/');
     const parentName = parts[0].trim();
-    
     if (!categoryTree[parentName]) {
       categoryTree[parentName] = { id: '', children: [] };
     }
-
     if (parts.length === 1) {
       categoryTree[parentName].id = cat.id;
     } else {
@@ -71,18 +71,27 @@ export default async function Home({
       categoryTree[parentName].children.push({ ...cat, displayName: childName });
     }
   });
-
+console.log("ПЕРЕВІРКА ТОВАРУ:", JSON.stringify(products[0], null, 2));
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Header Section */}
       <header className="max-w-7xl mx-auto pt-12 pb-8 px-6 text-center lg:text-left">
+        <div className="flex items-center justify-center lg:justify-start gap-2 text-indigo-600 mb-2">
+          {!isBrowsing && <Star className="w-4 h-4 fill-indigo-600" />}
+          <span className="text-[10px] font-black uppercase tracking-[0.3em]">
+            {isBrowsing ? "Результати пошуку" : "Ексклюзивна добірка"}
+          </span>
+        </div>
+        
         <h1 className="text-5xl lg:text-7xl font-black tracking-tighter italic mb-4">
           Гарна <span className="text-indigo-600">Господиня.</span>
         </h1>
         
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <p className="text-gray-400 font-medium text-lg max-w-md">
-            Затишок та якість для вашого дому.
+            {isBrowsing 
+              ? "Знайдено найкращі пропозиції за вашим запитом." 
+              : "Популярні товари, обрані спеціально для вашого затишку."}
           </p>
           
           <form className="relative w-full lg:max-w-md group">
@@ -106,13 +115,23 @@ export default async function Home({
         />
 
         <section className="flex-1">
+          {/* Заголовок над списком товарів */}
+          <div className="mb-8 flex items-end justify-between border-b border-gray-100 pb-4">
+            <h2 className="text-xl font-black uppercase tracking-tight">
+              {isBrowsing ? "Усі товари" : "ТОП позиції"}
+            </h2>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              {products.length} од.
+            </span>
+          </div>
+
           {products.length > 0 ? (
             <ProductList products={products} isAdmin={isAdmin} />
           ) : (
             <div className="text-center py-32 bg-gray-50 rounded-[40px] border border-dashed border-gray-200">
               <h3 className="text-2xl font-bold text-gray-400">Нічого не знайдено</h3>
               <Link href="/" className="text-indigo-600 font-bold mt-4 block hover:underline">
-                Скинути фільтри
+                Скинути фільтри та повернутись на головну
               </Link>
             </div>
           )}

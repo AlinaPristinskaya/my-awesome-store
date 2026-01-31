@@ -91,6 +91,8 @@ model Product {
   description String
   price       Float
   images      String[]
+  videoUrl    String?
+  isFeatured  Boolean     @default(false) 
   weight      Float    @default(0.5)
   length      Float    @default(10)
   width       Float    @default(10)
