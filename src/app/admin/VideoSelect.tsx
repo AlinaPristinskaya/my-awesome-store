@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 interface Video {
@@ -19,27 +19,31 @@ export default function VideoSelect({
 }) {
   const [isSaving, setIsSaving] = useState(false);
   const [selected, setSelected] = useState("");
+  // Используем Ref, чтобы понять, загрузились ли мы в первый раз
+  const isInitialMount = useRef(true);
 
-  // Функція для витягування імені файлу з будь-якого URL
   const getVideoId = (url: string) => {
     if (!url) return "";
     return url.split('/').pop()?.split('.')[0] || "";
   };
 
   useEffect(() => {
-    // Шукаємо відео у списку allVideos, чий ID збігається з ID збереженого посилання
-    const currentId = getVideoId(currentVideo || "");
-    const foundVideo = allVideos.find(v => getVideoId(v.secure_url) === currentId);
-    
-    if (foundVideo) {
-      setSelected(foundVideo.secure_url);
-    } else {
-      setSelected("");
+    // Синхронизируем с базой только при ПЕРВОЙ загрузке
+    if (isInitialMount.current) {
+      const currentId = getVideoId(currentVideo || "");
+      const foundVideo = allVideos.find(v => getVideoId(v.secure_url) === currentId);
+      
+      if (foundVideo) {
+        setSelected(foundVideo.secure_url);
+      } else {
+        setSelected("");
+      }
+      isInitialMount.current = false;
     }
   }, [currentVideo, allVideos]);
 
   const handleSelect = async (videoUrl: string) => {
-    setSelected(videoUrl);
+    setSelected(videoUrl); // Теперь это сработает и список не сбросится!
     setIsSaving(true);
     
     try {
@@ -50,7 +54,7 @@ export default function VideoSelect({
       });
       if (!res.ok) throw new Error();
     } catch (e) {
-      alert("Помилка збереження");
+      alert("Ошибка сохранения");
     } finally {
       setIsSaving(false);
     }
@@ -62,7 +66,7 @@ export default function VideoSelect({
         onChange={(e) => handleSelect(e.target.value)}
         value={selected}
         disabled={isSaving}
-        className="text-[10px] font-black uppercase bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 outline-none focus:border-indigo-300 w-40 disabled:opacity-50"
+        className="text-[10px] font-black uppercase bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 outline-none focus:border-indigo-300 w-40 disabled:opacity-50 cursor-pointer"
       >
         <option value="">Без відео</option>
         {allVideos.map((v) => (
