@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Trash2, Star } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 import VideoSelect from "@/app/admin/VideoSelect";
+import FeaturedToggle from "./FeaturedToggle"; // Імпортуємо твій новий компонент
 import { v2 as cloudinary } from 'cloudinary';
 
+// Налаштування Cloudinary
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -16,6 +18,17 @@ cloudinary.config({
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// Серверна дія для перемикання зірочки
+async function toggleFeatured(id: string, currentStatus: boolean) {
+  "use server";
+  await prisma.product.update({
+    where: { id },
+    data: { isFeatured: !currentStatus }
+  });
+  revalidatePath("/admin/products");
+  revalidatePath("/");
+}
 
 const getStatusStyles = (stock: number) => {
   if (stock > 5) return "bg-emerald-50 text-emerald-600 border-emerald-100";
@@ -26,8 +39,9 @@ const getStatusStyles = (stock: number) => {
 export default async function AdminProductsPage() {
   const session = await auth();
 
-  // ПЕРЕВІРКА РОЛІ
+  // Перевірка доступу (Роль або твій Email)
   const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
+  
   if (!isAdmin) {
     redirect("/");
   }
@@ -36,12 +50,13 @@ export default async function AdminProductsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Отримання відео з Cloudinary
   let allVideos = [];
   try {
     const result = await cloudinary.api.resources({
       resource_type: 'video',
       type: 'upload',
-      asset_folder: 'shorts',
+      asset_folder: 'shorts', 
       max_results: 100
     });
     
@@ -50,7 +65,7 @@ export default async function AdminProductsPage() {
       secure_url: resource.secure_url
     }));
   } catch (e) {
-    console.error("Cloudinary Direct Error:", e);
+    console.error("Cloudinary Error:", e);
   }
 
   return (
@@ -106,18 +121,12 @@ export default async function AdminProductsPage() {
                     </td>
                     
                     <td className="p-8 text-center">
-                      <form action={async () => {
-                        "use server";
-                        await prisma.product.update({
-                          where: { id: product.id },
-                          data: { isFeatured: !product.isFeatured }
-                        });
-                        revalidatePath("/admin/products");
-                      }}>
-                        <button type="submit" className={`p-2 rounded-full transition-colors ${product.isFeatured ? 'text-indigo-600' : 'text-gray-200 hover:text-gray-400'}`}>
-                          <Star className={`w-6 h-6 ${product.isFeatured ? 'fill-current' : ''}`} />
-                        </button>
-                      </form>
+                      {/* Використовуємо новий Client Component для миттєвої реакції */}
+                      <FeaturedToggle 
+                        productId={product.id}
+                        initialIsFeatured={product.isFeatured}
+                        toggleAction={toggleFeatured}
+                      />
                     </td>
 
                     <td className="p-8">
