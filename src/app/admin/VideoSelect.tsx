@@ -18,17 +18,28 @@ export default function VideoSelect({
   allVideos: Video[] 
 }) {
   const [isSaving, setIsSaving] = useState(false);
-  // Додаємо стан для вибору, щоб він миттєво оновлювався в інтерфейсі
-  const [selected, setSelected] = useState(currentVideo || "");
+  const [selected, setSelected] = useState("");
 
-  // Синхронізуємо стан, якщо currentVideo змінився зовні
+  // Функція для витягування імені файлу з будь-якого URL
+  const getVideoId = (url: string) => {
+    if (!url) return "";
+    return url.split('/').pop()?.split('.')[0] || "";
+  };
+
   useEffect(() => {
-    setSelected(currentVideo || "");
-  }, [currentVideo]);
+    // Шукаємо відео у списку allVideos, чий ID збігається з ID збереженого посилання
+    const currentId = getVideoId(currentVideo || "");
+    const foundVideo = allVideos.find(v => getVideoId(v.secure_url) === currentId);
+    
+    if (foundVideo) {
+      setSelected(foundVideo.secure_url);
+    } else {
+      setSelected("");
+    }
+  }, [currentVideo, allVideos]);
 
   const handleSelect = async (videoUrl: string) => {
-    const previousValue = selected;
-    setSelected(videoUrl); // Оптимістичне оновлення
+    setSelected(videoUrl);
     setIsSaving(true);
     
     try {
@@ -37,11 +48,9 @@ export default function VideoSelect({
         body: JSON.stringify({ productId, videoUrl }),
         headers: { "Content-Type": "application/json" }
       });
-      
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) throw new Error();
     } catch (e) {
       alert("Помилка збереження");
-      setSelected(previousValue); // Повертаємо назад у разі помилки
     } finally {
       setIsSaving(false);
     }
@@ -58,7 +67,6 @@ export default function VideoSelect({
         <option value="">Без відео</option>
         {allVideos.map((v) => (
           <option key={v.public_id} value={v.secure_url}>
-            {/* Очищаємо назву від зайвих символів для краси */}
             {v.public_id.split('/').pop()?.replace(/_/g, ' ')}
           </option>
         ))}

@@ -12,7 +12,8 @@ const getStatusStyles = (stock: number) => {
   if (stock > 0) return "bg-amber-50 text-amber-600 border-amber-100";
   return "bg-rose-50 text-rose-600 border-rose-100";
 };
-
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export default async function AdminProductsPage() {
   const session = await auth();
 
