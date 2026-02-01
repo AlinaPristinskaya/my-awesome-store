@@ -13,7 +13,9 @@ export async function GET(request: Request) {
 
   try {
     const result = await syncProductsFromXML();
-    return NextResponse.json({ success: true, ...result });
+    // Просто повертаємо результат прямо, 
+    // бо syncProductsFromXML вже містить { success: true, count: ... }
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }

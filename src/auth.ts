@@ -11,12 +11,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
-  callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id
+callbacks: {
+    async session({ session, user }: { session: any; user: any }) {
+      if (session?.user && user) {
+        session.user.role = user.role;
+        session.user.id = user.id;
       }
-      return session
+      return session;
     },
   },
 })
+

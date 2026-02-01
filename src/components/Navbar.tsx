@@ -17,7 +17,11 @@ export default function Navbar() {
   
   // Рахуємо загальну кількість товарів
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
-  const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com".toLowerCase();
+
+
+// В Navbar.tsx
+const isAdmin = (session?.user as any)?.role === "ADMIN";
+  
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
