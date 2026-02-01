@@ -6,8 +6,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { Plus, Trash2, Star } from "lucide-react";
 import VideoSelect from "@/app/admin/VideoSelect";
+import { v2 as cloudinary } from 'cloudinary'; // Додай цей імпорт
 
-// Змушуємо сторінку завжди вантажитися заново
+// Налаштування Cloudinary прямо тут
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -20,41 +27,35 @@ const getStatusStyles = (stock: number) => {
 export default async function AdminProductsPage() {
   const session = await auth();
 
-  // Перевірка прав доступу
   if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
     redirect("/");
   }
 
-  // Завантажуємо товари з БД
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
   });
 
-  // ЗАВАНТАЖУЄМО СПИСОК ВІДЕО
+  // ВИКЛИКАЄМО CLOUDINARY НАПРЯМУ (без fetch)
   let allVideos = [];
   try {
-    // Визначаємо URL для сервера: пріоритет на VERCEL_URL, потім NEXTAUTH_URL
-    const host = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : (process.env.NEXTAUTH_URL || 'http://localhost:3000');
-    
-    // Додаємо timestamp (?t=...), щоб обійти агресивний кеш Vercel Data Cache
-    const res = await fetch(`${host}/api/upload-video?t=${Date.now()}`, { 
-      cache: 'no-store',
-      next: { revalidate: 0 }
+    const result = await cloudinary.api.resources({
+      resource_type: 'video',
+      type: 'upload',
+      asset_folder: 'shorts', // Твоя папка
+      max_results: 100
     });
-
-    if (res.ok) {
-      allVideos = await res.json();
-    }
+    
+    allVideos = result.resources.map((resource: any) => ({
+      public_id: resource.public_id,
+      secure_url: resource.secure_url
+    }));
   } catch (e) {
-    console.error("Помилка отримання відео на сервері:", e);
+    console.error("Cloudinary Direct Error:", e);
   }
 
   return (
     <div className="min-h-screen bg-[#fafafa] p-6 md:p-12 text-black font-sans">
       <div className="max-w-6xl mx-auto">
-        
         <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
             <div className="flex items-center gap-2 text-indigo-600 mb-2">
@@ -130,18 +131,9 @@ export default async function AdminProductsPage() {
                         <VideoSelect 
                           productId={product.id} 
                           currentVideo={product.videoUrl} 
-                          allVideos={Array.isArray(allVideos) ? allVideos : []}
+                          allVideos={allVideos}
                         />
-
-                        <form action={async () => {
-                          "use server";
-                          await prisma.product.delete({ where: { id: product.id } });
-                          revalidatePath("/admin/products");
-                        }}>
-                          <button type="submit" className="p-3 text-gray-300 hover:text-rose-600 transition-all">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </form>
+                        {/* Решта кнопок видалення */}
                       </div>
                     </td>
                   </tr>
