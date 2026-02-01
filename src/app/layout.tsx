@@ -1,15 +1,7 @@
-import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import "./globals.css";
+import { SessionProvider } from "next-auth/react";
+import CartInitializer from "@/components/CartInitializer"; // перевір шлях до файлу
 import Navbar from "@/components/Navbar";
-import { SessionProvider } from "next-auth/react"; // Прямой импорт
-
-const geist = Geist({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "NextStore | Modern Essentials",
-  description: "High-quality products",
-};
+import "./globals.css";
 
 export default function RootLayout({
   children,
@@ -18,11 +10,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={geist.className}>
-        {/* Оборачиваем всё в SessionProvider, чтобы сессия была доступна сразу */}
+      <body>
         <SessionProvider>
+          {/* CartInitializer не має свого візуального інтерфейсу, 
+             він просто "живе" тут і стежить за сесією.
+          */}
+          <CartInitializer />
+          
           <Navbar />
           <main>{children}</main>
+          
+          {/* Тут може бути твій Footer */}
         </SessionProvider>
       </body>
     </html>
