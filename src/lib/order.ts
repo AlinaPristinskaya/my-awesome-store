@@ -1,8 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth"; // Добавлено для работы с сессией
 
-// Визначаємо типи для відповіді, щоб уникнути помилок в компонентах
+// Определяем типы для ответа
 export type OrderResponse = {
   success: boolean;
   orderId?: string;
@@ -11,20 +12,21 @@ export type OrderResponse = {
 };
 
 /**
- * Функція створення нового замовлення
+ * Функция создания нового заказа
  */
 export async function createOrder(data: any): Promise<OrderResponse> {
-  console.log("--- СЕРВЕР: Початок створення замовлення ---");
+  const session = await auth(); // Получаем текущего пользователя
+  console.log("--- СЕРВЕР: Начало создания заказа ---");
 
   try {
-    // 1. Зберігаємо замовлення в базу даних Neon через Prisma
+    // 1. Сохраняем заказ в базу данных Neon через Prisma
     const order = await prisma.order.create({
       data: {
-        customerName: data.customerName || "Гість",
+        customerName: data.customerName || "Гость",
         customerEmail: data.customerEmail || "",
-        customerAddress: data.customerAddress || "Не вказано",
+        customerAddress: data.customerAddress || "Не указано",
         paymentMethod: data.paymentMethod,
-        // Розрахунок суми на сервері для безпеки
+        // Расчет суммы на сервере для безопасности
         totalAmount: data.items.reduce(
           (acc: number, item: any) => acc + item.price * item.quantity,
           0
@@ -40,23 +42,43 @@ export async function createOrder(data: any): Promise<OrderResponse> {
       },
     });
 
-    console.log("✅ База даних: Замовлення збережено під ID:", order.id);
+    console.log("✅ База данных: Заказ сохранен под ID:", order.id);
 
-    // 2. Відправка сповіщення в Telegram
+    // --- ОЧИСТКА КОРЗИНЫ В БД (PRISMA) ---
+    // Если пользователь авторизован, удаляем товары из его таблицы CartItem
+    if (session?.user?.id) {
+      try {
+        const userCart = await prisma.cart.findUnique({
+          where: { userId: session.user.id }
+        });
+
+        if (userCart) {
+          await prisma.cartItem.deleteMany({
+            where: { cartId: userCart.id }
+          });
+          console.log("🧹 База данных: Корзина пользователя в БД очищена");
+        }
+      } catch (cartError) {
+        console.error("⚠️ Ошибка при очистке корзины в БД:", cartError);
+        // Не прерываем выполнение, так как заказ уже создан
+      }
+    }
+
+    // 2. Отправка уведомления в Telegram
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (botToken && chatId) {
       const message = `
-🚀 *НОВЕ ЗАМОВЛЕННЯ #${order.id.toString().slice(-5)}*
+🚀 *НОВОЕ ЗАКАЗ #${order.id.toString().slice(-5)}*
 ---------------------------
-👤 *Клієнт:* ${data.customerName}
+👤 *Клиент:* ${data.customerName}
 📞 *Тел:* ${data.phone}
 📍 *Доставка:* ${data.customerAddress}
-💳 *Оплата:* ${data.paymentMethod === 'WAYFORPAY' ? '💳 Картка' : '💵 Післяплата'}
-💰 *Сума:* ${order.totalAmount} грн
+💳 *Оплата:* ${data.paymentMethod === 'WAYFORPAY' ? '💳 Карта' : '💵 Наложенный платеж'}
+💰 *Сумма:* ${order.totalAmount} грн
 
-📦 *Товари:*
+📦 *Товары:*
 ${data.items.map((i: any) => `• ${i.name} — ${i.quantity} шт.`).join('\n')}
 ---------------------------
 🕒 ${new Date().toLocaleString('uk-UA')}
@@ -71,7 +93,7 @@ ${data.items.map((i: any) => `• ${i.name} — ${i.quantity} шт.`).join('\n')
           parse_mode: 'Markdown',
         }),
       });
-      console.log("📱 Telegram: Сповіщення надіслано!");
+      console.log("📱 Telegram: Уведомление отправлено!");
     }
 
     return { 
@@ -80,16 +102,16 @@ ${data.items.map((i: any) => `• ${i.name} — ${i.quantity} шт.`).join('\n')
     };
 
   } catch (error: any) {
-    console.error("❌ ПОМИЛКА СТВОРЕННЯ ЗАМОВЛЕННЯ:", error.message);
+    console.error("❌ ОШИБКА СОЗДАНИЯ ЗАКАЗА:", error.message);
     return { 
       success: false, 
-      error: error.message || "Сталася помилка на сервері" 
+      error: error.message || "Произошла ошибка на сервере" 
     };
   }
 }
 
 /**
- * Функція оновлення статусу замовлення (використовується в адмінці)
+ * Функция обновления статуса заказа
  */
 export async function updateOrderStatus(orderId: string, status: any) {
   try {
@@ -102,7 +124,7 @@ export async function updateOrderStatus(orderId: string, status: any) {
     
     return { success: true, order: updatedOrder };
   } catch (error: any) {
-    console.error("❌ ПОМИЛКА ОНОВЛЕННЯ СТАТУСУ:", error.message);
+    console.error("❌ ОШИБКА ОБНОВЛЕНИЯ СТАТУСА:", error.message);
     return { success: false, error: error.message };
   }
 }
