@@ -4,38 +4,51 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Trash2, Package, Star } from "lucide-react";
+import { Plus, Trash2, Star } from "lucide-react";
 import VideoSelect from "@/app/admin/VideoSelect";
+
+// Змушуємо сторінку завжди вантажитися заново
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const getStatusStyles = (stock: number) => {
   if (stock > 5) return "bg-emerald-50 text-emerald-600 border-emerald-100";
   if (stock > 0) return "bg-amber-50 text-amber-600 border-amber-100";
   return "bg-rose-50 text-rose-600 border-rose-100";
 };
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+
 export default async function AdminProductsPage() {
   const session = await auth();
 
+  // Перевірка прав доступу
   if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
     redirect("/");
   }
 
+  // Завантажуємо товари з БД
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
   });
 
-  // ЗАВАНТАЖУЄМО СПИСОК ВІДЕО ОДИН РАЗ (Оптимізація лімітів)
+  // ЗАВАНТАЖУЄМО СПИСОК ВІДЕО
   let allVideos = [];
   try {
-    // Використовуємо NEXTAUTH_URL для коректного запиту на сервері
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/upload-video`, { cache: 'no-store' });
+    // Визначаємо URL для сервера: пріоритет на VERCEL_URL, потім NEXTAUTH_URL
+    const host = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : (process.env.NEXTAUTH_URL || 'http://localhost:3000');
+    
+    // Додаємо timestamp (?t=...), щоб обійти агресивний кеш Vercel Data Cache
+    const res = await fetch(`${host}/api/upload-video?t=${Date.now()}`, { 
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+
     if (res.ok) {
       allVideos = await res.json();
     }
   } catch (e) {
-    console.error("Помилка отримання відео:");
+    console.error("Помилка отримання відео на сервері:", e);
   }
 
   return (
@@ -81,6 +94,7 @@ export default async function AdminProductsPage() {
                             alt={product.name}
                             fill
                             className="object-cover"
+                            unoptimized
                           />
                         </div>
                         <div>
@@ -99,7 +113,7 @@ export default async function AdminProductsPage() {
                         });
                         revalidatePath("/admin/products");
                       }}>
-                        <button type="submit" className={`p-2 rounded-full ${product.isFeatured ? 'text-indigo-600' : 'text-gray-200'}`}>
+                        <button type="submit" className={`p-2 rounded-full transition-colors ${product.isFeatured ? 'text-indigo-600' : 'text-gray-200 hover:text-gray-400'}`}>
                           <Star className={`w-6 h-6 ${product.isFeatured ? 'fill-current' : ''}`} />
                         </button>
                       </form>
@@ -113,7 +127,6 @@ export default async function AdminProductsPage() {
                     
                     <td className="p-8 text-right">
                       <div className="flex justify-end items-center gap-4">
-                        {/* ПЕРЕДАЄМО СПИСОК ВІДЕО В КОМПОНЕНТ */}
                         <VideoSelect 
                           productId={product.id} 
                           currentVideo={product.videoUrl} 
