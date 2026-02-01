@@ -6,9 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Plus, Trash2, Star } from "lucide-react";
 import VideoSelect from "@/app/admin/VideoSelect";
-import { v2 as cloudinary } from 'cloudinary'; // Додай цей імпорт
+import { v2 as cloudinary } from 'cloudinary';
 
-// Налаштування Cloudinary прямо тут
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -27,7 +26,9 @@ const getStatusStyles = (stock: number) => {
 export default async function AdminProductsPage() {
   const session = await auth();
 
-  if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
+  // ПЕРЕВІРКА РОЛІ
+  const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
+  if (!isAdmin) {
     redirect("/");
   }
 
@@ -35,13 +36,12 @@ export default async function AdminProductsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // ВИКЛИКАЄМО CLOUDINARY НАПРЯМУ (без fetch)
   let allVideos = [];
   try {
     const result = await cloudinary.api.resources({
       resource_type: 'video',
       type: 'upload',
-      asset_folder: 'shorts', // Твоя папка
+      asset_folder: 'shorts',
       max_results: 100
     });
     
@@ -133,7 +133,6 @@ export default async function AdminProductsPage() {
                           currentVideo={product.videoUrl} 
                           allVideos={allVideos}
                         />
-                        {/* Решта кнопок видалення */}
                       </div>
                     </td>
                   </tr>

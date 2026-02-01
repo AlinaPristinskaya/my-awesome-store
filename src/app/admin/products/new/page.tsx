@@ -6,12 +6,12 @@ import { revalidatePath } from "next/cache";
 export default async function NewProductPage() {
   const session = await auth();
 
-  // Захист
-  if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
+  // ПЕРЕВІРКА РОЛІ
+  const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
+  if (!isAdmin) {
     redirect("/");
   }
 
-  // Отримуємо категорії для випадаючого списку
   const categories = await prisma.category.findMany();
 
   async function addProduct(formData: FormData) {
@@ -31,8 +31,7 @@ export default async function NewProductPage() {
         price,
         stock,
         categoryId,
-        images: [imageUrl], // Поки що одне посилання на фото
-        // Значення за замовчуванням для габаритів
+        images: [imageUrl],
         weight: 0.5,
         width: 10,
         height: 10,
@@ -54,25 +53,14 @@ export default async function NewProductPage() {
         </header>
 
         <form action={addProduct} className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-8">
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Product Name</label>
-              <input 
-                name="name" 
-                required 
-                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all"
-                placeholder="e.g. Leather Boots"
-              />
+              <input name="name" required className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black" />
             </div>
-
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Category</label>
-              <select 
-                name="categoryId" 
-                required 
-                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all appearance-none"
-              >
+              <select name="categoryId" required className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl">
                 <option value="">Select Category</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -80,57 +68,25 @@ export default async function NewProductPage() {
               </select>
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Description</label>
-            <textarea 
-              name="description" 
-              required 
-              rows={4}
-              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all"
-              placeholder="Tell more about the product..."
-            />
+            <textarea name="description" required rows={4} className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl" />
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Price (UAH)</label>
-              <input 
-                name="price" 
-                type="number" 
-                step="0.01"
-                required 
-                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all"
-              />
+              <input name="price" type="number" step="0.01" required className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl" />
             </div>
-
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Stock Quantity</label>
-              <input 
-                name="stock" 
-                type="number" 
-                required 
-                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all"
-              />
+              <input name="stock" type="number" required className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl" />
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Image URL</label>
-            <input 
-              name="imageUrl" 
-              type="url" 
-              required 
-              placeholder="https://..."
-              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black transition-all"
-            />
-            <p className="text-[9px] text-gray-400 ml-4 italic">* For now, use links from your Prom.ua export file</p>
+            <input name="imageUrl" type="url" required className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl" />
           </div>
-
-          <button 
-            type="submit"
-            className="w-full bg-black text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-indigo-600 transition-all shadow-xl active:scale-[0.98]"
-          >
+          <button type="submit" className="w-full bg-black text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-indigo-600 transition-all">
             Save Product
           </button>
         </form>

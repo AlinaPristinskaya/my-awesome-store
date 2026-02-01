@@ -12,7 +12,7 @@ const getStatusStyles = (status: string) => {
       return "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100";
     case "PROCESSING": 
       return "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100";
-    default: // Для NEW и всех остальных
+    default:
       return "bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100";
   }
 };
@@ -20,8 +20,9 @@ const getStatusStyles = (status: string) => {
 export default async function AdminOrdersPage() {
   const session = await auth();
 
-  // Жесткая проверка админа
-  if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
+  // ПЕРЕВІРКА РОЛІ
+  const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
+  if (!isAdmin) {
     redirect("/");
   }
 
