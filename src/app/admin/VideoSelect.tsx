@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 interface Video {
   public_id: string;
@@ -11,41 +11,28 @@ interface Video {
 export default function VideoSelect({ 
   productId, 
   currentVideo, 
-  allVideos 
+  allVideos = [] // Захист від undefined
 }: { 
   productId: string, 
   currentVideo?: string | null,
   allVideos: Video[] 
 }) {
   const [isSaving, setIsSaving] = useState(false);
-  const [selected, setSelected] = useState("");
-  // Используем Ref, чтобы понять, загрузились ли мы в первый раз
-  const isInitialMount = useRef(true);
+  const [selected, setSelected] = useState(currentVideo || "");
 
-  const getVideoId = (url: string) => {
-    if (!url) return "";
-    return url.split('/').pop()?.split('.')[0] || "";
-  };
+  const getVideoId = (url: string) => url ? url.split('/').pop()?.split('.')[0] : "";
 
   useEffect(() => {
-    // Синхронизируем с базой только при ПЕРВОЙ загрузке
-    if (isInitialMount.current) {
-      const currentId = getVideoId(currentVideo || "");
-      const foundVideo = allVideos.find(v => getVideoId(v.secure_url) === currentId);
-      
-      if (foundVideo) {
-        setSelected(foundVideo.secure_url);
-      } else {
-        setSelected("");
-      }
-      isInitialMount.current = false;
+    if (currentVideo && allVideos.length > 0) {
+      const currentId = getVideoId(currentVideo);
+      const match = allVideos.find(v => getVideoId(v.secure_url) === currentId);
+      if (match) setSelected(match.secure_url);
     }
   }, [currentVideo, allVideos]);
 
   const handleSelect = async (videoUrl: string) => {
-    setSelected(videoUrl); // Теперь это сработает и список не сбросится!
+    setSelected(videoUrl);
     setIsSaving(true);
-    
     try {
       const res = await fetch("/api/upload-video", {
         method: "POST",
@@ -54,28 +41,38 @@ export default function VideoSelect({
       });
       if (!res.ok) throw new Error();
     } catch (e) {
-      alert("Ошибка сохранения");
+      alert("Помилка збереження");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <select 
-        onChange={(e) => handleSelect(e.target.value)}
-        value={selected}
-        disabled={isSaving}
-        className="text-[10px] font-black uppercase bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 outline-none focus:border-indigo-300 w-40 disabled:opacity-50 cursor-pointer"
-      >
-        <option value="">Без відео</option>
-        {allVideos.map((v) => (
-          <option key={v.public_id} value={v.secure_url}>
-            {v.public_id.split('/').pop()?.replace(/_/g, ' ')}
-          </option>
-        ))}
-      </select>
-      {isSaving && <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />}
+    <div className="flex flex-col gap-1">
+      {/* ДІАГНОСТИКА: покаже скільки відео прийшло */}
+      {allVideos.length === 0 && (
+        <span className="text-[8px] text-red-500 flex items-center gap-1 font-bold">
+          <AlertCircle className="w-2 h-2" /> 0 відео знайдено
+        </span>
+      )}
+
+      <div className="flex items-center gap-2 relative z-50">
+        <select 
+          onChange={(e) => handleSelect(e.target.value)}
+          value={selected}
+          className="text-[10px] font-black uppercase bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-500 w-48 cursor-pointer shadow-sm"
+          style={{ display: 'block', opacity: 1, visibility: 'visible' }}
+        >
+          <option value="">🚫 Без відео</option>
+          {allVideos.map((v) => (
+            <option key={v.public_id} value={v.secure_url}>
+              {v.public_id.split('/').pop()?.replace(/_/g, ' ')}
+            </option>
+          ))}
+        </select>
+        
+        {isSaving && <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />}
+      </div>
     </div>
   );
 }
