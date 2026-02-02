@@ -8,12 +8,16 @@ import Link from "next/link";
 export default async function ProductPage({ 
   params 
 }: { 
-  params: Promise<{ id: string }> 
+  params: Promise<{ slug: string[] }> // Тепер приймаємо масив сегментів URL
 }) {
-  const { id } = await params;
+  const { slug } = await params;
+
+  // Збираємо всі частини URL назад у рядок з роздільником "/", 
+  // щоб знайти товар у базі (наприклад, "2781/grey")
+  const fullId = slug.join('/');
 
   const product = await prisma.product.findUnique({
-    where: { id },
+    where: { id: fullId },
     include: { category: true },
   });
 
@@ -40,7 +44,6 @@ export default async function ProductPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-24">
           <div className="relative">
-             {/* ПЕРЕДАЄМО ВІДЕО В ГАЛЕРЕЮ */}
              <ImageGallery images={allImages} videoUrl={product.videoUrl} />
           </div>
 

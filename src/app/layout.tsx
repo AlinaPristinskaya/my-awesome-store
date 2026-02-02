@@ -1,6 +1,7 @@
 import { SessionProvider } from "next-auth/react";
 import CartInitializer from "@/components/CartInitializer"; // перевір шлях до файлу
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import "./globals.css";
 
 export default function RootLayout({
@@ -21,6 +22,7 @@ export default function RootLayout({
           <main>{children}</main>
           
           {/* Тут може бути твій Footer */}
+          <Footer />
         </SessionProvider>
       </body>
     </html>
