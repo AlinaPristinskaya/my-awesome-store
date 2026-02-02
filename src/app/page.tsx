@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import ProductList from "@/components/ProductList";
 import { auth } from "@/auth";
-import { Search, Star } from "lucide-react"; // Додав Star
+import { Search, Star } from "lucide-react"; 
 import CategorySidebar from "@/components/CategorySidebar";
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,6 @@ export default async function Home({
   const categoryId = params.categoryId;
   const query = params.query;
 
-  // 1. Отримуємо всі категорії для побудови дерева та фільтрації
   const allCategories = await prisma.category.findMany({ 
     orderBy: { name: 'asc' } 
   });
@@ -28,11 +27,17 @@ export default async function Home({
   const where: any = {};
 
   // --- ЛОГІКА ВІТРИНИ ---
-  // Якщо немає активного пошуку і не обрана категорія — показуємо тільки "Популярні"
   const isBrowsing = categoryId || query;
   if (!isBrowsing) {
     where.isFeatured = true;
   }
+
+  // --- ЛОГІКА ФІЛЬТРАЦІЇ ЗАЛИШКІВ (Закоментовано до рішення клієнтки) ---
+  /*
+  where.stock = {
+    gt: 0 // Показувати тільки товари, де кількість більше 0
+  };
+  */
 
   // ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ
   if (categoryId) {
@@ -71,7 +76,9 @@ export default async function Home({
       categoryTree[parentName].children.push({ ...cat, displayName: childName });
     }
   });
-console.log("ПЕРЕВІРКА ТОВАРУ:", JSON.stringify(products[0], null, 2));
+
+  console.log("ПЕРЕВІРКА ТОВАРУ:", JSON.stringify(products[0], null, 2));
+
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Header Section */}
@@ -115,7 +122,6 @@ console.log("ПЕРЕВІРКА ТОВАРУ:", JSON.stringify(products[0], null
         />
 
         <section className="flex-1">
-          {/* Заголовок над списком товарів */}
           <div className="mb-8 flex items-end justify-between border-b border-gray-100 pb-4">
             <h2 className="text-xl font-black uppercase tracking-tight">
               {isBrowsing ? "Усі товари" : "ТОП позиції"}

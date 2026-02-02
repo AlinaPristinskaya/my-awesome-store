@@ -91,6 +91,7 @@ model Product {
   name        String
   description String
   price       Float
+  oldPrice    Float?
   images      String[]
   videoUrl    String?
   isFeatured  Boolean     @default(false)
@@ -98,13 +99,14 @@ model Product {
   length      Float       @default(10)
   width       Float       @default(10)
   height      Float       @default(10)
-  stock       Int         @default(10)
+  stock       Int         @default(0)
   categoryId  String
   category    Category    @relation(fields: [categoryId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  
 }
 
 // ---------------------------------------------------------
