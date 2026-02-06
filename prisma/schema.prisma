@@ -16,12 +16,19 @@ enum OrderStatus {
   COMPLETED
 }
 
+// enum PaymentMethod {
+//   STRIPE
+//   CASH_ON_DELIVERY
+//   WAYFORPAY
+// }
 enum PaymentMethod {
   STRIPE
   CASH_ON_DELIVERY
   WAYFORPAY
+  MONOPAY
+  INVOICE
+  IBAN        // <--- Перевір, чи є це слово тут
 }
-
 // ---------------------------------------------------------
 // 2. МОДЕЛІ АВТОРИЗАЦІЇ (Auth.js)
 // ---------------------------------------------------------
