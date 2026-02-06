@@ -1,9 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth"; // Добавлено для работы с сессией
+import { auth } from "@/auth";
+import { generateWayForPaySignature, WAYFORPAY_CONFIG } from "./wayforpay";
 
-// Определяем типы для ответа
 export type OrderResponse = {
   success: boolean;
   orderId?: string;
@@ -11,120 +11,129 @@ export type OrderResponse = {
   paymentData?: any;
 };
 
-/**
- * Функция создания нового заказа
- */
 export async function createOrder(data: any): Promise<OrderResponse> {
-  const session = await auth(); // Получаем текущего пользователя
-  console.log("--- СЕРВЕР: Начало создания заказа ---");
+  const session = await auth();
+  console.log("--- СЕРВЕР: Початок створення замовлення ---");
 
   try {
-    // 1. Сохраняем заказ в базу данных Neon через Prisma
+    const totalAmount = data.items.reduce(
+      (acc: number, item: any) => acc + item.price * item.quantity,
+      0
+    );
+
+    // 1. СТВОРЕННЯ ЗАМОВЛЕННЯ В БАЗІ ДАНИХ
     const order = await prisma.order.create({
       data: {
-        customerName: data.customerName || "Гость",
-        customerEmail: data.customerEmail || "",
-        customerAddress: data.customerAddress || "Не указано",
+        userId: session?.user?.id || null,
+        customerName: String(data.customerName),
+        customerEmail: String(data.customerEmail),
+        customerAddress: String(data.customerAddress),
+        totalAmount: Number(totalAmount),
+        status: "NEW", 
         paymentMethod: data.paymentMethod,
-        // Расчет суммы на сервере для безопасности
-        totalAmount: data.items.reduce(
-          (acc: number, item: any) => acc + item.price * item.quantity,
-          0
-        ),
         items: {
           create: data.items.map((item: any) => ({
             productId: item.id,
             name: item.name,
-            price: item.price,
-            quantity: item.quantity,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
           })),
         },
       },
     });
 
-    console.log("✅ База данных: Заказ сохранен под ID:", order.id);
-
-    // --- ОЧИСТКА КОРЗИНЫ В БД (PRISMA) ---
-    // Если пользователь авторизован, удаляем товары из его таблицы CartItem
+    // 2. Очищення кошика в БД (якщо користувач залогінений)
     if (session?.user?.id) {
-      try {
-        const userCart = await prisma.cart.findUnique({
-          where: { userId: session.user.id }
-        });
-
-        if (userCart) {
-          await prisma.cartItem.deleteMany({
-            where: { cartId: userCart.id }
-          });
-          console.log("🧹 База данных: Корзина пользователя в БД очищена");
-        }
-      } catch (cartError) {
-        console.error("⚠️ Ошибка при очистке корзины в БД:", cartError);
-        // Не прерываем выполнение, так как заказ уже создан
-      }
+      await prisma.cartItem.deleteMany({
+        where: { cart: { userId: session.user.id } }
+      }).catch((e) => console.error("Помилка очищення кошика:", e));
     }
 
-    // 2. Отправка уведомления в Telegram
+    // 3. ВІДПРАВКА В TELEGRAM
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (botToken && chatId) {
-      const message = `
-🚀 *НОВОЕ ЗАКАЗ #${order.id.toString().slice(-5)}*
----------------------------
-👤 *Клиент:* ${data.customerName}
-📞 *Тел:* ${data.phone}
-📍 *Доставка:* ${data.customerAddress}
-💳 *Оплата:* ${data.paymentMethod === 'WAYFORPAY' ? '💳 Карта' : '💵 Наложенный платеж'}
-💰 *Сумма:* ${order.totalAmount} грн
+      const itemsList = data.items
+        .map((item: any) => `• ${item.name} (x${item.quantity}) — ${item.price} грн`)
+        .join("\n");
 
-📦 *Товары:*
-${data.items.map((i: any) => `• ${i.name} — ${i.quantity} шт.`).join('\n')}
----------------------------
-🕒 ${new Date().toLocaleString('uk-UA')}
-      `;
+      const tgMessage = 
+        `🛍 <b>НОВЕ ЗАМОВЛЕННЯ #${order.id.slice(-6).toUpperCase()}</b>\n\n` +
+        `👤 <b>Клієнт:</b> ${data.customerName}\n` +
+        `📞 <b>Телефон:</b> <code>${data.phone}</code>\n` +
+        `📍 <b>Адреса:</b> ${data.customerAddress}\n` +
+        `💳 <b>Оплата:</b> ${data.paymentMethod}\n\n` +
+        `🛒 <b>Товари:</b>\n${itemsList}\n\n` +
+        `💰 <b>ЗАГАЛЬНА СУМА: ${totalAmount} грн</b>`;
 
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'Markdown',
-        }),
-      });
-      console.log("📱 Telegram: Уведомление отправлено!");
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: tgMessage,
+            parse_mode: "HTML",
+          }),
+        });
+        console.log("✅ Сповіщення в Telegram надіслано");
+      } catch (tgErr) {
+        console.error("❌ Помилка Telegram API:", tgErr);
+      }
+    } else {
+      console.warn("⚠️ Telegram змінні оточення не налаштовані!");
     }
 
-    return { 
-      success: true, 
-      orderId: order.id 
-    };
+    // 4. ЛОГІКА WAYFORPAY
+    if (data.paymentMethod === 'WAYFORPAY') {
+      const orderDate = Math.floor(Date.now() / 1000);
+      const orderReference = order.id; 
+
+      const productNames = data.items.map((i: any) => i.name);
+      const productPrices = data.items.map((i: any) => i.price);
+      const productCounts = data.items.map((i: any) => i.quantity);
+
+      const signatureData = [
+        WAYFORPAY_CONFIG.merchantAccount,
+        WAYFORPAY_CONFIG.merchantDomainName,
+        orderReference,
+        orderDate,
+        totalAmount,
+        'UAH',
+        ...productNames,
+        ...productCounts,
+        ...productPrices
+      ];
+
+      const signature = generateWayForPaySignature(signatureData, WAYFORPAY_CONFIG.merchantSecretKey);
+
+      const paymentData = {
+        merchantAccount: WAYFORPAY_CONFIG.merchantAccount,
+        merchantDomainName: WAYFORPAY_CONFIG.merchantDomainName,
+        merchantSignature: signature,
+        orderReference: orderReference,
+        orderDate: orderDate,
+        amount: totalAmount,
+        currency: 'UAH',
+        productName: productNames,
+        productPrice: productPrices,
+        productCount: productCounts,
+        clientFirstName: data.customerName.split(' ')[1] || "Клієнт",
+        clientLastName: data.customerName.split(' ')[0] || "",
+        clientPhone: data.phone,
+        returnUrl: `${WAYFORPAY_CONFIG.merchantDomainName}/api/payment-callback`,
+        serviceUrl: WAYFORPAY_CONFIG.serviceUrl,
+      };
+
+      return { success: true, orderId: order.id, paymentData };
+    }
+
+    // Для післяплати або інших методів
+    return { success: true, orderId: order.id };
 
   } catch (error: any) {
-    console.error("❌ ОШИБКА СОЗДАНИЯ ЗАКАЗА:", error.message);
-    return { 
-      success: false, 
-      error: error.message || "Произошла ошибка на сервере" 
-    };
-  }
-}
-
-/**
- * Функция обновления статуса заказа
- */
-export async function updateOrderStatus(orderId: string, status: any) {
-  try {
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: { 
-        status: status 
-      },
-    });
-    
-    return { success: true, order: updatedOrder };
-  } catch (error: any) {
-    console.error("❌ ОШИБКА ОБНОВЛЕНИЯ СТАТУСА:", error.message);
+    console.error("❌ ПОМИЛКА СЕРВЕРА:", error);
     return { success: false, error: error.message };
   }
 }
