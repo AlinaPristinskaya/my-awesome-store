@@ -137,3 +137,16 @@ export async function createOrder(data: any): Promise<OrderResponse> {
     return { success: false, error: error.message };
   }
 }
+// Функція-заглушка для успішного білду (використовується в адмінці замовлень)
+
+export async function updateOrderStatus(orderId: string, newStatus: any) {
+  try {
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: { status: newStatus as any }, // Додаємо as any тут
+    });
+    return { success: true, order: updatedOrder };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
