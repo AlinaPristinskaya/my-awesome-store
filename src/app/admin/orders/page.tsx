@@ -38,7 +38,7 @@ export default async function AdminOrdersPage() {
       <div className="max-w-6xl mx-auto">
         <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
-            <h1 className="text-6xl font-black tracking-tighter uppercase italic">Admin Panel</h1>
+            <h1 className="text-6xl font-black tracking-tighter uppercase">Admin Panel</h1>
             <p className="text-gray-400 font-bold uppercase text-[10px] mt-2 tracking-widest">Store Management</p>
           </div>
           <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-6">

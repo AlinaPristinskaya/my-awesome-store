@@ -2,7 +2,7 @@ export default function OfertaPage() {
   return (
     <div className="min-h-screen bg-white text-black p-8 md:p-20 font-sans text-[15px]">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
+        <h1 className="text-4xl font-black tracking-tighter uppercase mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
           Договір публічної оферти
         </h1>
 

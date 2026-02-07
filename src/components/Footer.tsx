@@ -23,7 +23,7 @@ export default function Footer() {
             <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Ми на зв'язку</h3>
             <div className="text-gray-600 text-[11px] font-bold space-y-1 uppercase">
               <p>Пн – Пт: 9:00 – 18:00</p>
-              <p className="text-gray-400 italic">Сб – Нд: Online</p>
+              <p className="text-gray-400">Сб – Нд: Online</p>
             </div>
           </div>
 
@@ -53,14 +53,9 @@ export default function Footer() {
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-center md:text-left">
             <span>© {currentYear} OSELIA.UA</span>
             <span className="mx-3 hidden md:inline opacity-30">|</span>
-            <span className="block md:inline mt-2 md:mt-0 italic opacity-60">ФОП Птишник</span>
+            <span className="block md:inline mt-2 md:mt-0 opacity-60">ФОП Птишник</span>
           </div>
           
-          <div className="flex gap-4 grayscale opacity-50">
-            {/* Тут можна додати іконки Visa/Mastercard */}
-            <span className="text-[8px] font-black border border-gray-200 px-2 py-1 rounded">VISA</span>
-            <span className="text-[8px] font-black border border-gray-200 px-2 py-1 rounded">MASTERCARD</span>
-          </div>
         </div>
       </div>
     </footer>

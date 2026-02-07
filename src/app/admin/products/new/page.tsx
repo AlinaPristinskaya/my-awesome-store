@@ -48,7 +48,7 @@ export default async function NewProductPage() {
     <div className="min-h-screen bg-[#fafafa] p-6 md:p-12 text-black">
       <div className="max-w-3xl mx-auto">
         <header className="mb-12">
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Create Product</h1>
+          <h1 className="text-4xl font-black tracking-tighter uppercase">Create Product</h1>
           <p className="text-gray-400 font-bold uppercase text-[10px] mt-2 tracking-widest">Add new item to your catalog</p>
         </header>
 

@@ -140,7 +140,7 @@ function CheckoutContent() {
   if (isOrdered) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-white text-black">
       <CheckCircle2 className="w-20 h-20 text-indigo-600 mb-6" />
-      <h1 className="text-4xl font-black italic uppercase">Дякуємо!</h1>
+      <h1 className="text-4xl font-black uppercase">Дякуємо!</h1>
       <p className="text-gray-500 mb-6 font-bold uppercase text-[10px]">Ваше замовлення успішно прийнято.</p>
       
       {lastPaymentMethod === 'IBAN' && (
@@ -167,7 +167,7 @@ function CheckoutContent() {
               {copied && <p className="text-[10px] text-green-500 font-bold mt-1 text-center">Скопійовано!</p>}
             </div>
             <div className="pt-2 border-t border-gray-200">
-              <p className="text-[10px] text-gray-400 italic font-bold leading-tight uppercase">
+              <p className="text-[10px] text-gray-400 font-bold leading-tight uppercase">
                 * Будь ласка, вкажіть ваше Прізвище в призначенні платежу.
               </p>
             </div>
@@ -184,14 +184,14 @@ function CheckoutContent() {
   return (
     <div className="min-h-screen bg-[#fafafa] p-4 md:p-8 text-black">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl font-black mb-10 italic">Оформлення</h1>
+        <h1 className="text-5xl font-black mb-10">Оформлення</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
           <div className="lg:col-span-2">
             <form onSubmit={handlePlaceOrder} className="space-y-6">
               
               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-black mb-6 italic uppercase">1. Контакти</h2>
+                <h2 className="text-xl font-black mb-6 uppercase">1. Контакти</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <input name="lastName" required placeholder="Прізвище" className="p-4 bg-gray-50 rounded-2xl outline-none font-bold" />
                   <input name="firstName" required placeholder="Ім'я" className="p-4 bg-gray-50 rounded-2xl outline-none font-bold" />
@@ -200,7 +200,7 @@ function CheckoutContent() {
               </div>
 
               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-black mb-6 italic uppercase">2. Доставка</h2>
+                <h2 className="text-xl font-black mb-6 uppercase">2. Доставка</h2>
                 <div className="flex gap-4 mb-6">
                   {(['NP', 'UP'] as const).map((type) => (
                     <button key={type} type="button" onClick={() => setDeliveryService(type)} className={`flex-1 py-4 rounded-2xl border-2 font-black transition-all ${deliveryService === type ? 'border-indigo-600 bg-indigo-600 text-white shadow-lg' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
@@ -238,7 +238,7 @@ function CheckoutContent() {
               </div>
 
               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-black mb-6 italic uppercase">3. Оплата</h2>
+                <h2 className="text-xl font-black mb-6 uppercase">3. Оплата</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <button type="button" onClick={() => setPaymentType('CASH_ON_DELIVERY')} className={`p-5 rounded-2xl border-2 flex items-center gap-4 transition-all ${paymentType === 'CASH_ON_DELIVERY' ? 'border-indigo-600 bg-indigo-600 text-white shadow-lg' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
                     <Banknote /> <div className="text-left"><p className="font-black text-[10px] uppercase">Післяплата</p></div>
@@ -274,7 +274,7 @@ function CheckoutContent() {
 
           <div className="lg:col-span-1">
             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 sticky top-24 shadow-sm">
-              <h2 className="text-xl font-black mb-6 italic uppercase flex items-center gap-2">
+              <h2 className="text-xl font-black mb-6 uppercase flex items-center gap-2">
                 <Package className="text-indigo-600" /> Кошик
               </h2>
               <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto pr-2">

@@ -90,9 +90,9 @@ export default async function Home({
             {/* ЛОГОТИП */}
             <div className="flex flex-col items-center space-y-2 mb-6 drop-shadow-xl">
               <h1 className="text-6xl sm:text-8xl font-black tracking-[0.2em] text-white uppercase">
-                OSELIA<span className="text-indigo-400">.</span>
+                OSELIA<span className="text-indigo-600">.</span>
               </h1>
-              <p className="text-xs sm:text-sm font-black text-indigo-300 uppercase tracking-[0.3em]">
+              <p className="text-xs sm:text-sm font-black text-indigo-600 uppercase tracking-[0.6em]">
                 Мистецтво бути вдома
               </p>
             </div>

@@ -32,14 +32,14 @@ export default async function OrdersPage() {
     <div className="min-h-screen bg-[#fafafa] p-6 md:p-12 text-black">
       <div className="max-w-5xl mx-auto">
         <header className="mb-12">
-          <h1 className="text-5xl font-black tracking-tighter italic uppercase">My Orders</h1>
+          <h1 className="text-5xl font-black tracking-tighter uppercase">My Orders</h1>
           <p className="text-gray-400 font-bold uppercase text-xs tracking-widest mt-2">Personal Purchase History</p>
         </header>
 
         {orders.length === 0 ? (
           <div className="bg-white p-20 rounded-[3rem] text-center border border-gray-100">
             <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-            <h2 className="text-xl font-bold italic uppercase">No orders yet</h2>
+            <h2 className="text-xl font-bold uppercase">No orders yet</h2>
             <a href="/" className="mt-6 inline-block bg-black text-white px-8 py-3 rounded-2xl font-bold uppercase text-xs tracking-widest">Start Shopping</a>
           </div>
         ) : (
@@ -50,7 +50,7 @@ export default async function OrdersPage() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Order</p>
-                      <p className="font-mono text-sm font-bold italic">#{order.id.slice(-8).toUpperCase()}</p>
+                      <p className="font-mono text-sm font-bold">#{order.id.slice(-8).toUpperCase()}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>

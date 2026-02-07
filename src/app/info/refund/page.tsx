@@ -2,7 +2,7 @@ export default function RefundPage() {
   return (
     <div className="min-h-screen bg-white text-black p-8 md:p-20 font-sans">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
+        <h1 className="text-4xl font-black tracking-tighter uppercase mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
           Обмін та повернення
         </h1>
 
@@ -58,7 +58,7 @@ export default function RefundPage() {
           <section className="bg-gray-50 p-8 rounded-[2rem] border border-gray-100 space-y-4">
             <p>Для оформлення обміну або повернення, будь ласка, зверніться до нас, зателефонувавши за номерами вказаними в розділі «Контакти».</p>
             <p>Після підтвердження обміну або повернення нашим менеджером, будь ласка, відправте нам товар за узгодженими реквізитами.</p>
-            <p className="italic">Обміняти або повернути товар можна також у нас в офісі за адресою <strong>м. Вінниця, вул. Батозька, буд. 6а</strong></p>
+            <p className="">Обміняти або повернути товар можна також у нас в офісі за адресою <strong>м. Вінниця, вул. Батозька, буд. 6а</strong></p>
           </section>
 
           {/* Повернення коштів */}

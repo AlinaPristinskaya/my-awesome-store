@@ -97,7 +97,7 @@ function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory
         </Link>
         
         {/* Опис ховаємо на маленьких екранах, щоб не забивати місце */}
-        <p className="hidden md:line-clamp-2 text-gray-400 text-[12px] mb-4 font-medium italic">
+        <p className="hidden md:line-clamp-2 text-gray-400 text-[12px] mb-4 font-medium">
           {product.description?.replace(/<[^>]*>?/gm, '') || "Опис відсутній"}
         </p>
         

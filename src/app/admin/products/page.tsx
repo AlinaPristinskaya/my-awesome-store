@@ -92,7 +92,7 @@ export default async function AdminProductsPage({
               <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Менеджер складу</span>
             </div>
-            <h1 className="text-6xl font-black tracking-tighter uppercase italic">Інвентар</h1>
+            <h1 className="text-6xl font-black tracking-tighter uppercase">Інвентар</h1>
           </div>
 
           {/* БЛОК ПОШУКУ ТА КНОПКИ */}

@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-white text-black p-8 md:p-20 font-sans">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
+        <h1 className="text-4xl font-black tracking-tighter uppercase mb-8 border-b-4 border-indigo-600 pb-4 inline-block">
           Політика конфіденційності
         </h1>
 
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
             <p>Ви маєте право отримати доступ до своїх персональних даних, змінити їх або вимагати їх видалення з нашої бази. Для цього ви можете звернутися до нас за контактами, вказаними на сайті.</p>
           </section>
 
-          <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 italic text-sm text-gray-500">
+          <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 text-sm text-gray-500">
             Здійснюючи покупку на сайті https://garnagospodynya.com.ua, ви автоматично погоджуєтеся з умовами цієї Політики конфіденційності.
           </div>
         </div>

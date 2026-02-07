@@ -11,13 +11,13 @@ function CartContent() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Your cart is empty</h1>
-        <p className="text-gray-500">Looks like you have not added anything yet.</p>
+        <h1 className="text-2xl font-bold text-gray-800">Ваша корзина порожня</h1>
+        <p className="text-gray-500">Немає товарів в корзині.</p>
         <Link 
           href="/" 
           className="mt-2 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition shadow-lg"
         >
-          Start Shopping
+          Розпочати покупки
         </Link>
       </div>
     );
@@ -25,7 +25,7 @@ function CartContent() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-8">Shopping Cart</h1>
+      <h1 className="text-3xl font-bold mb-8">Корзина</h1>
       
       <div className="bg-white rounded-2xl shadow-sm border p-6 space-y-6">
         {items.map((item) => (
@@ -87,9 +87,9 @@ function CartContent() {
       {/* Summary Section */}
       <div className="mt-8 bg-gray-900 text-white p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
         <div>
-          <p className="text-gray-400 text-sm mb-1 uppercase tracking-wider">Total Amount</p>
+          <p className="text-gray-400 text-sm mb-1 uppercase tracking-wider">Всього</p>
           <div className="text-4xl font-black">
-            ${totalPrice().toLocaleString()}
+            грн {totalPrice().toLocaleString()}
           </div>
         </div>
         
@@ -98,7 +98,7 @@ function CartContent() {
           href="/checkout" 
           className="bg-white text-black px-12 py-4 rounded-full font-bold hover:bg-gray-100 transition-all transform hover:scale-105 w-full md:w-auto text-center"
         >
-          Checkout Now
+          Купити
         </Link>
       </div>
     </div>
@@ -109,7 +109,7 @@ export default dynamic(() => Promise.resolve(CartContent), {
   ssr: false,
   loading: () => (
     <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="animate-pulse text-xl font-medium text-gray-400">Loading your cart...</div>
+      <div className="animate-pulse text-xl font-medium text-gray-400">Чекаємо вашу корзину...</div>
     </div>
   )
 });

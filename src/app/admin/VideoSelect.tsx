@@ -82,7 +82,7 @@ export default function VideoSelect({
           disabled={isSaving}
           className="flex items-center justify-between w-56 px-3 py-2 text-[10px] font-black uppercase bg-white border border-gray-200 rounded-xl hover:border-indigo-500 transition-all shadow-sm"
         >
-          <span className="truncate mr-2 italic">{currentVideoName}</span>
+          <span className="truncate mr-2 ">{currentVideoName}</span>
           {isSaving ? <Loader2 className="w-3 h-3 animate-spin text-indigo-600" /> : <ChevronsUpDown className="w-3 h-3 text-gray-400" />}
         </button>
 

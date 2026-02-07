@@ -4,7 +4,7 @@ export default function ContactsPage() {
   return (
     <div className="min-h-screen bg-white text-black p-8 md:p-20 font-sans">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-12 border-b-4 border-indigo-600 pb-4 inline-block">
+        <h1 className="text-4xl font-black tracking-tighter uppercase  mb-12 border-b-4 border-indigo-600 pb-4 inline-block">
           Контактна інформація
         </h1>
 
@@ -20,7 +20,7 @@ export default function ContactsPage() {
                 <a href="tel:+380673681022" className="text-xl font-black hover:text-indigo-600 transition-colors">
                   +38 (067) 368-10-22
                 </a>
-                <p className="text-sm text-gray-500 mt-2 italic font-medium">Замовити дзвінок</p>
+                <p className="text-sm text-gray-500 mt-2  font-medium">Замовити дзвінок</p>
               </div>
             </div>
 
@@ -45,7 +45,7 @@ export default function ContactsPage() {
                 <p className="font-bold text-gray-700">Пн – Пт: 9:00 – 18:00</p>
                 <p className="text-sm text-gray-500 mt-2 leading-relaxed">
                   Ми раді прийняти замовлення <span className="font-bold">on-line</span> у робочий час. <br />
-                  В інший час — звертайтесь <span className="bg-[#40E0D0] px-2 font-bold italic">off-line</span>, ми відповімо найближчим робочим часом.
+                  В інший час — звертайтесь <span className="bg-[#40E0D0] px-2 font-bold ">off-line</span>, ми відповімо найближчим робочим часом.
                 </p>
               </div>
             </div>
