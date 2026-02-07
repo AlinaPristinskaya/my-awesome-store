@@ -14,50 +14,41 @@ export default async function Home({
   searchParams: Promise<{ categoryId?: string; query?: string }>;
 }) {
   const session = await auth();
-  // Перевірка адміна (залишив твій email)
   const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
 
   const params = await searchParams;
   const categoryId = params.categoryId;
   const query = params.query;
 
-  // 1. Завантажуємо всі категорії
+  // 1. Завантажуємо всі категорії для сайдбару та логіки
   const allCategories = await prisma.category.findMany({ 
     orderBy: { name: 'asc' } 
   });
 
   const where: any = {};
 
-  // --- ЛОГІКА ВІТРИНИ ---
-  const isBrowsing = categoryId || query;
-  if (!isBrowsing) {
-    where.isFeatured = true;
-  }
+  // --- ЧІТКА ЛОГІКА ФІЛЬТРАЦІЇ ---
 
-  // --- ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ ---
-  // --- ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ ---
+  if (query) {
+    // Якщо є пошук — шукаємо по назві (ТОП не враховуємо)
+    where.name = { contains: query, mode: 'insensitive' };
+  } 
+  
   if (categoryId) {
+    // Якщо обрана категорія — шукаємо в ній та її підкатегоріях
     const selectedCategory = allCategories.find(c => c.id === categoryId);
     if (selectedCategory) {
-      // Знаходимо всі дочірні категорії
-      const childCategoryIds = allCategories
+      const childIds = allCategories
         .filter(c => c.parentId === selectedCategory.id)
         .map(c => c.id);
       
-      // Фільтруємо товари: сама категорія + її діти
-      where.categoryId = { in: [selectedCategory.id, ...childCategoryIds] };
-      
-      // Коли ми в категорії, ми ПРИБИРАЄМО фільтр isFeatured, щоб бачити всі товари цієї категорії
-      delete where.isFeatured;
+      where.categoryId = { in: [selectedCategory.id, ...childIds] };
     }
-  } else if (!query) {
-    // Якщо категорія НЕ обрана і немає пошукового запиту — показуємо ТІЛЬКИ ТОП
-    where.isFeatured = true;
   }
 
-  // --- ЛОГІКА ПОШУКУ ---
-  if (query) {
-    where.name = { contains: query, mode: 'insensitive' };
+  // ГОЛОВНЕ ПРАВИЛО: Якщо немає ні пошуку, ні обраної категорії — показуємо тільки ТОП
+  if (!query && !categoryId) {
+    where.isFeatured = true;
   }
 
   // 2. Завантажуємо товари
@@ -67,10 +58,10 @@ export default async function Home({
     orderBy: { createdAt: 'desc' }
   });
 
-  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ (Виправлено на parentId)
-  const categoryTree: Record<string, { id: string, children: any[] }> = {};
+  const isBrowsing = !!(categoryId || query);
 
-  // Беремо тільки головні категорії (ті, у кого немає parentId)
+  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ
+  const categoryTree: Record<string, { id: string, children: any[] }> = {};
   const rootCategories = allCategories.filter(cat => !cat.parentId);
 
   rootCategories.forEach(parent => {
@@ -80,14 +71,13 @@ export default async function Home({
         .filter(child => child.parentId === parent.id)
         .map(child => ({
           ...child,
-          displayName: child.name // Ім'я підкатегорії
+          displayName: child.name
         }))
     };
   });
 
   return (
     <div className="min-h-screen bg-white text-black">
-      {/* Header Section */}
       <header className="max-w-7xl mx-auto pt-12 pb-8 px-6 text-center lg:text-left">
         <div className="flex items-center justify-center lg:justify-start gap-2 text-indigo-600 mb-2">
           {!isBrowsing && <Star className="w-4 h-4 fill-indigo-600" />}
@@ -121,7 +111,6 @@ export default async function Home({
       </header>
 
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 pb-20">
-        {/* Сайдбар тепер отримує чітке дерево з 4 категорій */}
         <CategorySidebar 
           categoryTree={categoryTree} 
           currentCategoryId={categoryId} 
