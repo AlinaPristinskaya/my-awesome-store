@@ -14,12 +14,14 @@ export default async function Home({
   searchParams: Promise<{ categoryId?: string; query?: string }>;
 }) {
   const session = await auth();
+  // Перевірка адміна (залишив твій email)
   const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
 
   const params = await searchParams;
   const categoryId = params.categoryId;
   const query = params.query;
 
+  // 1. Завантажуємо всі категорії
   const allCategories = await prisma.category.findMany({ 
     orderBy: { name: 'asc' } 
   });
@@ -32,24 +34,28 @@ export default async function Home({
     where.isFeatured = true;
   }
 
-  // --- ЛОГІКА ФІЛЬТРАЦІЇ ЗАЛИШКІВ (Закоментовано до рішення клієнтки) ---
-  /*
-  where.stock = {
-    gt: 0 // Показувати тільки товари, де кількість більше 0
-  };
-  */
-
-  // ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ
+  // --- ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ ---
+  // --- ЛОГІКА ФІЛЬТРАЦІЇ КАТЕГОРІЇ ---
   if (categoryId) {
     const selectedCategory = allCategories.find(c => c.id === categoryId);
     if (selectedCategory) {
-      const relatedCategoryIds = allCategories
-        .filter(c => c.name.startsWith(selectedCategory.name))
+      // Знаходимо всі дочірні категорії
+      const childCategoryIds = allCategories
+        .filter(c => c.parentId === selectedCategory.id)
         .map(c => c.id);
-      where.categoryId = { in: relatedCategoryIds };
+      
+      // Фільтруємо товари: сама категорія + її діти
+      where.categoryId = { in: [selectedCategory.id, ...childCategoryIds] };
+      
+      // Коли ми в категорії, ми ПРИБИРАЄМО фільтр isFeatured, щоб бачити всі товари цієї категорії
+      delete where.isFeatured;
     }
+  } else if (!query) {
+    // Якщо категорія НЕ обрана і немає пошукового запиту — показуємо ТІЛЬКИ ТОП
+    where.isFeatured = true;
   }
 
+  // --- ЛОГІКА ПОШУКУ ---
   if (query) {
     where.name = { contains: query, mode: 'insensitive' };
   }
@@ -61,23 +67,23 @@ export default async function Home({
     orderBy: { createdAt: 'desc' }
   });
 
-  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ
+  // 3. ГРУПУВАННЯ КАТЕГОРІЙ ДЛЯ САЙДБАРУ (Виправлено на parentId)
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
-  allCategories.forEach(cat => {
-    const parts = cat.name.split('/');
-    const parentName = parts[0].trim();
-    if (!categoryTree[parentName]) {
-      categoryTree[parentName] = { id: '', children: [] };
-    }
-    if (parts.length === 1) {
-      categoryTree[parentName].id = cat.id;
-    } else {
-      const childName = parts.slice(1).join('/').trim();
-      categoryTree[parentName].children.push({ ...cat, displayName: childName });
-    }
-  });
 
-  console.log("ПЕРЕВІРКА ТОВАРУ:", JSON.stringify(products[0], null, 2));
+  // Беремо тільки головні категорії (ті, у кого немає parentId)
+  const rootCategories = allCategories.filter(cat => !cat.parentId);
+
+  rootCategories.forEach(parent => {
+    categoryTree[parent.name] = {
+      id: parent.id,
+      children: allCategories
+        .filter(child => child.parentId === parent.id)
+        .map(child => ({
+          ...child,
+          displayName: child.name // Ім'я підкатегорії
+        }))
+    };
+  });
 
   return (
     <div className="min-h-screen bg-white text-black">
@@ -115,6 +121,7 @@ export default async function Home({
       </header>
 
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 pb-20">
+        {/* Сайдбар тепер отримує чітке дерево з 4 категорій */}
         <CategorySidebar 
           categoryTree={categoryTree} 
           currentCategoryId={categoryId} 

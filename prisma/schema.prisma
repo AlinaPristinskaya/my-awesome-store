@@ -87,10 +87,16 @@ model VerificationToken {
 // ---------------------------------------------------------
 
 model Category {
-  id       String    @id // ID з SalesDrive
-  name     String
-  slug     String    @unique
-  products Product[]
+  id        String     @id // Твій ID з SalesDrive
+  name      String
+  slug      String     @unique
+  
+  // Додаємо ці три рядки для ієрархії:
+  parentId  String?    @map("parent_id")
+  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
+
+  products  Product[]
 }
 
 model Product {

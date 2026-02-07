@@ -18,6 +18,7 @@ export async function syncProductsFromXML() {
     if (!response.ok) throw new Error(`Помилка завантаження XML: ${response.statusText}`);
     
     const xmlData = await response.text();
+    // ignoreAttributes: false дозволяє бачити id та parentId
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
     const jsonObj = parser.parse(xmlData);
     const shop = jsonObj.yml_catalog?.shop || jsonObj.shop;
@@ -33,12 +34,23 @@ export async function syncProductsFromXML() {
     for (const cat of categoriesArray) {
       const name = String(cat["#text"] || "Без назви");
       const idStr = String(cat.id);
+      // Отримуємо parentId з атрибутів
+      const parentIdStr = cat.parentId ? String(cat.parentId) : null;
       const slug = `${createSlug(name)}-${idStr}`;
 
       await prisma.category.upsert({
         where: { id: idStr },
-        update: { name, slug },
-        create: { id: idStr, name, slug },
+        update: { 
+          name, 
+          slug,
+          parentId: parentIdStr // Оновлюємо зв'язок з батьком
+        },
+        create: { 
+          id: idStr, 
+          name, 
+          slug,
+          parentId: parentIdStr // Створюємо зв'язок з батьком
+        },
       });
     }
 
@@ -53,7 +65,6 @@ export async function syncProductsFromXML() {
         imagesArray = [String(item.picture)];
       }
 
-      // Перевіряємо чи є відео в самому XML
       const externalVideo = item.video || item.videoLink || item.youtube || null;
 
       await prisma.product.upsert({
@@ -65,7 +76,6 @@ export async function syncProductsFromXML() {
           images: imagesArray,
           stock: (item.available === "true" || item.available === true) ? 99 : 0,
           categoryId: String(item.categoryId),
-          // ЗАХИСТ: якщо в XML порожньо, ми НЕ передаємо videoUrl взагалі, щоб не затерти базу
           ...(externalVideo ? { videoUrl: String(externalVideo) } : {}),
         },
         create: {

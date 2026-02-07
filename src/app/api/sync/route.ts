@@ -1,22 +1,44 @@
 import { NextResponse } from 'next/server';
 import { syncProductsFromXML } from '@/lib/sync-salesdrive';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
-  // Захист за допомогою секретного ключа з .env, 
-  // щоб ніхто чужий не міг навантажувати твій сервер запитами
+  // 1. Отримуємо ключ із URL запиту
   const { searchParams } = new URL(request.url);
   const key = searchParams.get('key');
 
-  if (key !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // 2. Перевіряємо, чи збігається ключ із тим, що вказаний у .env
+  // Переконайся, що в Vercel або .env додано CRON_SECRET
+  if (!process.env.CRON_SECRET || key !== process.env.CRON_SECRET) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Invalid or missing key' }, 
+      { status: 401 }
+    );
   }
 
   try {
+    // 3. Запускаємо нашу оновлену синхронізацію, яка тепер враховує parentId
     const result = await syncProductsFromXML();
-    // Просто повертаємо результат прямо, 
-    // бо syncProductsFromXML вже містить { success: true, count: ... }
-    return NextResponse.json(result);
+
+    // 4. Повертаємо результат (кількість оновлених товарів тощо)
+    if (result.success) {
+      return NextResponse.json({
+        message: 'Синхронізація пройшла успішно',
+        count: result.count,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error }, 
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    console.error("Critical Sync API Error:", error);
+    return NextResponse.json(
+      { success: false, error: String(error) }, 
+      { status: 500 }
+    );
   }
 }
