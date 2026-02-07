@@ -15,13 +15,8 @@ export default function Navbar() {
   const { items, setItems } = useCartStore();
   const hasHydrated = useHasHydrated();
   
-  // Рахуємо загальну кількість товарів
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
-
-
-// В Navbar.tsx
-const isAdmin = (session?.user as any)?.role === "ADMIN";
-  
+  const isAdmin = (session?.user as any)?.role === "ADMIN";
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
@@ -36,80 +31,98 @@ const isAdmin = (session?.user as any)?.role === "ADMIN";
       };
       syncAndLoad();
     }
-  }, [status, session]);
+  }, [status, session, setItems]);
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 text-black">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+    <nav className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 text-black overflow-visible">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
         
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-2xl font-black tracking-tighter hover:opacity-80 transition-opacity whitespace-nowrap">
-            Гарна<span className="text-indigo-600">Господиня</span>
+        {/* ЛІВА ЧАСТИНА: ГІГАНТСЬКЕ ЛОГО ТА КАТАЛОГ */}
+        <div className="flex items-center gap-2 sm:gap-16">
+          <Link href="/" className="relative flex items-center transition-transform active:scale-95">
+            {/* Контейнер для лого з overflow-visible, щоб scale[4] не обрізався */}
+            <div className="relative w-32 sm:w-44 h-12 flex items-center justify-center overflow-visible">
+              <Image 
+                src="/logo.png" 
+                alt="OSELIA" 
+                fill
+                className="object-contain object-left scale-[2.5] sm:scale-[4] transform-gpu origin-left" 
+                priority
+              />
+            </div>
           </Link>
 
-          {/* Кнопка КАТАЛОГ */}
+          {/* КАТАЛОГ */}
           <Link 
             href="/" 
-            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-indigo-600 transition-colors group"
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-indigo-600 transition-colors group ml-2"
           >
-            <LayoutGrid className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
-            <span className="hidden sm:inline">Каталог</span>
+            <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-indigo-50 transition-colors">
+              <LayoutGrid className="w-4 h-4 text-indigo-600" />
+            </div>
+            <span className="hidden md:inline">Каталог</span>
           </Link>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6">
-          <div className="flex items-center gap-3 sm:gap-4 border-l pl-4 sm:pl-6 border-gray-100">
-            {status !== "loading" && session?.user ? (
-              <div className="flex items-center gap-3 sm:gap-4">
-                {isAdmin && (
-                  <Link href="/admin/products" className="hidden lg:flex items-center gap-2 text-[10px] font-black bg-black text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition-all uppercase">
-                    <Shield className="w-3 h-3" />
-                    <span>Admin</span>
-                  </Link>
-                )}
-
-                <Link href="/orders" className="flex items-center gap-2 text-[10px] font-black bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 uppercase tracking-widest hover:bg-white transition-all">
-                  <Package className="w-4 h-4 text-indigo-600" />
-                  <span className="hidden md:inline">Мої замовлення</span>
+        {/* ПРАВА ЧАСТИНА: USER & CART */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          
+          {status !== "loading" && session?.user ? (
+            <div className="flex items-center gap-2 sm:gap-3 border-r pr-2 sm:pr-4 border-gray-100">
+              {isAdmin && (
+                <Link href="/admin/products" title="Адмін-панель" className="p-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all">
+                  <Shield className="w-4 h-4" />
                 </Link>
+              )}
 
-                <div className="relative h-9 w-9 overflow-hidden rounded-full border border-gray-200 shadow-sm flex-shrink-0">
-                  <Image 
-                    src={session.user.image || '/placeholder-user.png'} 
-                    alt="User" 
-                    fill 
-                    className="object-cover" 
-                    unoptimized 
-                  />
-                </div>
+              <Link href="/orders" className="flex items-center gap-2 p-2 sm:px-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-white transition-all group">
+                <Package className="w-4 h-4 text-gray-500 group-hover:text-indigo-600" />
+                <span className="hidden lg:inline text-[9px] font-black uppercase tracking-widest text-gray-600">Замовлення</span>
+              </Link>
 
-                <button onClick={() => signOut()} className="p-2 text-gray-400 hover:text-rose-500 transition-colors">
-                  <LogOut className="w-5 h-5" />
-                </button>
+              <div className="relative h-8 w-8 overflow-hidden rounded-full border border-gray-200 hidden sm:block shadow-sm">
+                <Image 
+                  src={session.user.image || '/placeholder-user.png'} 
+                  alt="User" 
+                  fill 
+                  className="object-cover" 
+                  unoptimized 
+                />
               </div>
-            ) : status !== "loading" && (
-              <button onClick={() => signIn("google")} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 transition">
-                <LogIn className="w-5 h-5" />
-                <span>Увійти</span>
-              </button>
-            )}
-          </div>
 
-          {/* ІКОНКА КОШИКА З ЛІЧИЛЬНИКОМ */}
+              <button 
+                onClick={() => signOut()} 
+                className="p-2 text-gray-400 hover:text-rose-500 transition-colors"
+                title="Вийти"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          ) : status !== "loading" && (
+            <button 
+              onClick={() => signIn("google")} 
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 px-3 py-2 bg-gray-50 rounded-xl transition shadow-sm active:scale-95"
+            >
+              <LogIn className="w-4 h-4" />
+              <span className="hidden sm:inline">Увійти</span>
+            </button>
+          )}
+
+          {/* КОШИК */}
           <Link 
             href="/cart" 
-            className="relative p-2.5 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-indigo-50 transition-colors group"
+            className="relative p-2.5 bg-indigo-600 rounded-xl sm:rounded-2xl hover:bg-indigo-700 transition-all group shadow-lg shadow-indigo-100 active:scale-90"
           >
-            <ShoppingBag className="w-6 h-6 text-gray-700 group-hover:text-indigo-600 transition-colors" />
+            <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             <AnimatePresence>
               {hasHydrated && totalItems > 0 && (
                 <motion.span 
-                  initial={{ scale: 0, opacity: 0 }} 
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full border-2 border-white shadow-lg"
+                  initial={{ scale: 0 }} 
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1.5 -right-1.5 bg-white text-indigo-600 text-[10px] font-black h-6 w-6 flex items-center justify-center rounded-full border-2 border-indigo-600 shadow-sm"
                 >
-                  {totalItems > 99 ? '99+' : totalItems}
+                  {totalItems > 99 ? '99' : totalItems}
                 </motion.span>
               )}
             </AnimatePresence>
