@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 import cloudinary from '@/lib/cloudinary';
 import { prisma } from '@/lib/prisma';
 
-// Отримуємо список відео з Cloudinary для випадаючого списку
+// Отримуємо список відео з Cloudinary
 export async function GET() {
   try {
     const result = await cloudinary.api.resources({
       resource_type: 'video',
       type: 'upload',
-      asset_folder: 'shorts', // Твоя папка в Cloudinary
+      asset_folder: 'shorts', 
       max_results: 100
     });
     
@@ -19,18 +19,23 @@ export async function GET() {
   }
 }
 
-// Прив'язуємо вибране відео до товару
+// Прив'язуємо або видаляємо відео
 export async function POST(request: Request) {
   try {
     const { productId, videoUrl } = await request.json();
 
-    if (!productId || !videoUrl) {
-      return NextResponse.json({ error: "Дані відсутні" }, { status: 400 });
+    // Тепер перевіряємо ТІЛЬКИ productId. 
+    // videoUrl може бути порожнім, якщо ми хочемо його видалити.
+    if (!productId) {
+      return NextResponse.json({ error: "ID товару відсутній" }, { status: 400 });
     }
 
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
-      data: { videoUrl: videoUrl }
+      data: { 
+        // Якщо videoUrl порожній або undefined, записуємо null (очищуємо поле)
+        videoUrl: videoUrl || null 
+      }
     });
 
     return NextResponse.json(updatedProduct);
