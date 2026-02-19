@@ -65,12 +65,11 @@ export default async function Home({
   return (
     <div className="min-h-screen bg-white text-black">
       
-      {/* 1. БАНЕР НА ВСЮ ШИРИНУ (БЕЗ ОБМЕЖЕНЬ) */}
-      {/* HEADER З БАНЕРОМ ТА ЗАТЕМНЕННЯМ */}
+      {/* 1. БАНЕР НА ВСЮ ШИРИНУ */}
       <header className="w-full relative">
         <div className="relative w-full min-h-[500px] sm:min-h-[600px] flex items-center justify-center overflow-hidden">
           
-          {/* АДАПТИВНІ КАРТИНКИ */}
+          {/* АДАПТИВНІ КАРТИНКИ - ПОВЕРНУТО ЯК БУЛО */}
           <picture className="absolute inset-0 w-full h-full">
             <source media="(min-width: 1024px)" srcSet="/desktop.jpg" />
             <source media="(min-width: 640px)" srcSet="/tablet.jpg" />
@@ -119,8 +118,9 @@ export default async function Home({
         </div>
       </header>
 
-      {/* КОНТЕНТНИЙ БЛОК (З обмеженням ширини max-w-7xl) */}
+      {/* КОНТЕНТНИЙ БЛОК */}
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 py-16">
+        {/* Sidebar з категоріями */}
         <CategorySidebar 
           categoryTree={categoryTree} 
           currentCategoryId={categoryId} 
