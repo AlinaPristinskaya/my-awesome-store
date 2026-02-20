@@ -101,6 +101,7 @@ model Category {
 
 model Product {
   id          String      @id @default(cuid())
+  sku         String?  // Ось наше поле для артикулу
   name        String
   description String
   price       Float

@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Video, VideoOff } from "lucide-react";
 import VideoSelect from "@/app/admin/VideoSelect";
 import FeaturedToggle from "@/app/admin/products/FeaturedToggle";
 import PriorityToggle from "@/app/admin/products/PriorityToggle";
 import CategoryFilter from "./CategoryFilter";
+import SyncButton from "./SyncButton";
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
@@ -18,6 +19,13 @@ cloudinary.config({
 });
 
 export const dynamic = 'force-dynamic';
+
+// 1. ФУНКЦІЯ ОЧИЩЕННЯ АРТИКУЛУ
+const getCleanVideoName = (sku: string | null) => {
+  if (!sku) return null;
+  // Замінюємо / \ * та пробіли на дефіс, робимо малі літери
+  return sku.replace(/[\/\\*\s]/g, "-").toLowerCase();
+};
 
 async function toggleFeatured(id: string, currentStatus: boolean) {
   "use server";
@@ -54,6 +62,7 @@ export default async function AdminProductsPage({
         ...searchWords.map(word => ({
           OR: [
             { name: { contains: word, mode: 'insensitive' } },
+            { sku: { contains: word, mode: 'insensitive' } },
             { id: { contains: word, mode: 'insensitive' } },
           ]
         }))
@@ -63,11 +72,21 @@ export default async function AdminProductsPage({
     orderBy: [{ priority: 'desc' }, { createdAt: "desc" }],
   });
 
-  let allVideos = [];
+  let allVideos: { public_id: string; secure_url: string }[] = [];
   try {
-    const result = await cloudinary.api.resources({ resource_type: 'video', type: 'upload', asset_folder: 'shorts', max_results: 100 });
-    allVideos = result.resources.map((r: any) => ({ public_id: r.public_id, secure_url: r.secure_url }));
-  } catch (e) { console.error(e); }
+    // Тягнемо всі відео (якщо відео не в папці volandi, прибери prefix)
+    const result = await cloudinary.api.resources({ 
+      resource_type: 'video', 
+      type: 'upload',
+      max_results: 500 
+    });
+    allVideos = result.resources.map((r: any) => ({ 
+      public_id: r.public_id, 
+      secure_url: r.secure_url 
+    }));
+  } catch (e) { 
+    console.error("Cloudinary error:", e); 
+  }
 
   return (
     <div className="min-h-screen bg-[#fafafa] p-6 md:p-12 text-black font-sans">
@@ -83,18 +102,17 @@ export default async function AdminProductsPage({
 
           <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
             <CategoryFilter categories={categories} currentCategoryId={categoryId} />
-
             <form action="/admin/products" className="relative w-full md:w-80 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
               <input
                 type="text"
                 name="query"
                 defaultValue={query}
-                placeholder="Пошук..."
+                placeholder="Назва або артикул..."
                 className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white border border-gray-100 outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all text-sm font-medium"
               />
             </form>
-
+            <SyncButton />
             <Link href="/admin/products/new" className="w-full md:w-auto bg-black text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-2 shadow-xl">
               <Plus className="w-4 h-4" /> Додати
             </Link>
@@ -102,44 +120,82 @@ export default async function AdminProductsPage({
         </header>
 
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <th className="p-8">Товар / Категорія</th>
-                <th className="p-8 text-center">Рейтинг (1-3)</th>
-                <th className="p-8 text-center">Вітрина</th>
-                <th className="p-8 text-right">Відео & Дії</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50/20 transition-colors">
-                  <td className="p-8">
-                    <div className="flex items-center gap-6">
-                      <div className="relative w-16 h-20 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shrink-0">
-                        <Image src={product.images[0] || "/placeholder.png"} alt="" fill className="object-cover" unoptimized />
-                      </div>
-                      <div>
-                        <p className="font-black text-base leading-tight mb-1">{product.name}</p>
-                        <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest">{product.category?.name}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-8">
-                    <div className="flex justify-center">
-                      <PriorityToggle productId={product.id} currentPriority={product.priority || 1} updateAction={updatePriority} />
-                    </div>
-                  </td>
-                  <td className="p-8 text-center">
-                    <FeaturedToggle productId={product.id} initialIsFeatured={product.isFeatured} toggleAction={toggleFeatured} />
-                  </td>
-                  <td className="p-8 text-right">
-                    <VideoSelect productId={product.id} currentVideo={product.videoUrl} allVideos={allVideos} />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <th className="p-8">Артикул / Відео</th> 
+                  <th className="p-8">Товар / Категорія</th>
+                  <th className="p-8 text-center">Рейтинг</th>
+                  <th className="p-8 text-center">Вітрина</th>
+                  <th className="p-8 text-right">Дії</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {products.map((product) => {
+                  // ПЕРЕВІРКА ВІДЕО
+                  const cleanVideoName = getCleanVideoName(product.sku);
+                  const isVideoInCloudinary = allVideos.some(v => {
+                    const fileNameOnly = v.public_id.split('/').pop()?.toLowerCase();
+                    return fileNameOnly === cleanVideoName;
+                  });
+
+                  return (
+                    <tr key={product.id} className="hover:bg-gray-50/20 transition-colors">
+                      <td className="p-8">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="w-fit px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg font-mono font-bold text-xs border border-indigo-100">
+                            {product.sku || "—"}
+                          </span>
+                          {product.sku && (
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">
+                              Файл: {cleanVideoName}.mp4
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="p-8">
+                        <div className="flex items-center gap-6">
+                          <div className="relative w-16 h-20 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shrink-0">
+                            <Image src={product.images[0] || "/placeholder.png"} alt="" fill className="object-cover" unoptimized />
+                          </div>
+                          <div>
+                            <p className="font-black text-base leading-tight mb-1">{product.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{product.category?.name}</p>
+                              {isVideoInCloudinary && (
+                                <span className="flex items-center gap-1 text-[9px] text-emerald-600 font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-md">
+                                  <Video className="w-2.5 h-2.5" /> Відео знайдено
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-8 text-center">
+                        <PriorityToggle productId={product.id} currentPriority={product.priority || 1} updateAction={updatePriority} />
+                      </td>
+
+                      <td className="p-8 text-center">
+                        <FeaturedToggle productId={product.id} initialIsFeatured={product.isFeatured} toggleAction={toggleFeatured} />
+                      </td>
+
+                      <td className="p-8 text-right">
+                        <div className="flex flex-col items-end gap-2">
+                          <VideoSelect productId={product.id} currentVideo={product.videoUrl} allVideos={allVideos} />
+                          <Link href={`/admin/products/${product.id}`} className="text-[10px] font-black uppercase text-indigo-600 hover:underline">
+                            Редагувати
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
