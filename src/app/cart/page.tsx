@@ -48,7 +48,7 @@ function CartContent() {
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-lg text-gray-900">{item.name}</h3>
-                <p className="text-gray-500 font-medium">${item.price.toLocaleString()}</p>
+                <p className="text-gray-500 font-medium">{item.price.toLocaleString()} грн</p>
               </div>
             </div>
 
@@ -89,7 +89,7 @@ function CartContent() {
         <div>
           <p className="text-gray-400 text-sm mb-1 uppercase tracking-wider">Всього</p>
           <div className="text-4xl font-black">
-            грн {totalPrice().toLocaleString()}
+             {totalPrice().toLocaleString()} грн
           </div>
         </div>
         

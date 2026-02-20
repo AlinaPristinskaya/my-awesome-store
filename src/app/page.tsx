@@ -100,7 +100,7 @@ export default async function Home({
             <p className="text-white/90 font-medium text-lg max-w-2xl leading-relaxed mb-8 drop-shadow-md">
               {isBrowsing 
                 ? "Результати пошуку за вашим запитом" 
-                : "Естетичний посуд, текстиль та декор. Створюємо атмосферу, в яку хочеться повертатися."}
+                : "Створюємо атмосферу, в яку хочеться повертатися."}
             </p>
 
             {/* ПОШУК */}
