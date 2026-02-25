@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
@@ -23,13 +23,13 @@ interface ProductListProps {
 
 function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory, index: number, isAdmin: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false); // Новий стан
   const hasHydrated = useHasHydrated();
   
   const mainImage = product.images && product.images.length > 0 
     ? product.images[0] 
     : '/placeholder-product.png';
 
-  // Визначаємо, чи ми на мобілці (тільки після гідрації)
   const isMobile = hasHydrated && window.innerWidth < 768;
 
   return (
@@ -41,7 +41,6 @@ function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Контейнер зображення/відео */}
       <div className="relative aspect-[4/5] w-full mb-3 md:mb-6 overflow-hidden rounded-[1.5rem] md:rounded-[3rem] bg-gray-50 border border-gray-100 shadow-sm group-hover:shadow-xl transition-all duration-500">
         
         {isAdmin && (
@@ -53,13 +52,10 @@ function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory
         <Link href={`/product/${product.id}`} className="block w-full h-full relative">
           <div className="relative w-full h-full overflow-hidden">
             
-            {/* КАРТИНКА: На мобільних приховуємо через Tailwind, якщо є відео */}
-            <motion.div
-              className={`absolute inset-0 w-full h-full ${product.videoUrl ? 'hidden md:block' : 'block'}`}
-              initial={false}
-              animate={{ x: isHovered && product.videoUrl ? '-100%' : '0%' }}
-              transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-            >
+            {/* 1. ФОТО: Показується завжди спочатку, плавно зникає коли ВІДЕО готове */}
+            <div className={`absolute inset-0 z-10 transition-opacity duration-700 ${
+              (videoLoaded && (isHovered || isMobile)) ? 'opacity-0' : 'opacity-100'
+            }`}>
               <Image
                 src={mainImage}
                 alt={product.name}
@@ -69,24 +65,22 @@ function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory
                 className="object-cover"
                 sizes="(max-width: 768px) 50vw, 33vw"
               />
-            </motion.div>
+            </div>
 
-            {/* ВІДЕО: На мобільних показуємо відразу, на ПК — при ховері */}
+            {/* 2. ВІДЕО: Лежить під картинкою і проявляється після завантаження */}
             {product.videoUrl && (
-              <motion.div
-                className="absolute inset-0 w-full h-full"
-                initial={{ x: isMobile ? '0%' : '100%' }}
-                animate={{ 
-                  x: (isHovered || isMobile) ? '0%' : '100%' 
-                }}
-                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              >
+              <div className={`absolute inset-0 w-full h-full transition-opacity duration-700 ${
+                (videoLoaded && (isHovered || isMobile)) ? 'opacity-100' : 'opacity-0'
+              }`}>
                 <ProductVideo 
                   videoUrl={product.videoUrl} 
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full object-cover"
+                  // Важливо: додаємо подію, щоб знати коли відео завантажилось
+                  onPlay={() => setVideoLoaded(true)} 
                 />
-              </motion.div>
+              </div>
             )}
+            
           </div>
         </Link>
       </div>
@@ -99,13 +93,8 @@ function ProductCard({ product, index, isAdmin }: { product: ProductWithCategory
           </h2>
         </Link>
         
-        <p className="hidden md:line-clamp-2 text-gray-400 text-[12px] mb-4 font-medium">
-          {product.description?.replace(/<[^>]*>?/gm, '') || "Опис відсутній"}
-        </p>
-        
         <div className="mt-auto flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
           <div className="flex flex-col">
-            <span className="hidden md:block text-[10px] font-bold uppercase text-gray-300 tracking-wider">Ціна</span>
             <span className="text-[15px] md:text-xl font-black text-black whitespace-nowrap">
               {hasHydrated ? `${product.price.toLocaleString('uk-UA')} грн` : '...'}
             </span>

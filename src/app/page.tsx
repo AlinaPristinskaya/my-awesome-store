@@ -10,25 +10,37 @@ export const dynamic = 'force-dynamic';
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ categoryId?: string; query?: string }>;
+  searchParams: Promise<{ categoryId?: string; subCategoryId?: string; query?: string }>;
 }) {
   const session = await auth();
   const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
 
   const params = await searchParams;
   const categoryId = params.categoryId;
+  const subCategoryId = params.subCategoryId; // Додаємо підтримку підкатегорії
   const query = params.query;
 
-  const allCategories = await prisma.category.findMany({ 
-    orderBy: { name: 'asc' } 
-  });
+  // Отримуємо ВСІ дані
+  const [allCategories, allSubCategories] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: 'asc' } }),
+    prisma.subCategory.findMany()
+  ]);
 
   const where: any = {};
+
+  // 1. Пошук
   if (query) {
-    where.name = { contains: query, mode: 'insensitive' };
+    where.OR = [
+      { name: { contains: query, mode: 'insensitive' } },
+      { sku: { contains: query, mode: 'insensitive' } },
+    ];
   } 
   
-  if (categoryId) {
+  // 2. Фільтрація
+  if (subCategoryId) {
+    // Якщо вибрано вашу РУЧНУ підкатегорію
+    where.subCategoryId = subCategoryId;
+  } else if (categoryId) {
     const selectedCategory = allCategories.find(c => c.id === categoryId);
     if (selectedCategory) {
       const childIds = allCategories
@@ -38,18 +50,20 @@ export default async function Home({
     }
   }
 
-  if (!query && !categoryId) {
+  // 3. Вітрина
+  if (!query && !categoryId && !subCategoryId) {
     where.isFeatured = true;
   }
 
   const products = await prisma.product.findMany({
     where, 
     include: { category: true },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { priority: 'desc' } // Сортуємо за пріоритетом
   });
 
-  const isBrowsing = !!(categoryId || query);
+  const isBrowsing = !!(categoryId || subCategoryId || query);
 
+  // Побудова дерева для Sidebar
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
   const rootCategories = allCategories.filter(cat => !cat.parentId);
 
@@ -65,11 +79,10 @@ export default async function Home({
   return (
     <div className="min-h-screen bg-white text-black">
       
-      {/* 1. БАНЕР НА ВСЮ ШИРИНУ */}
+      {/* Твій оригінальний БАНЕР */}
       <header className="w-full relative">
         <div className="relative w-full min-h-[500px] sm:min-h-[600px] flex items-center justify-center overflow-hidden">
           
-          {/* АДАПТИВНІ КАРТИНКИ - ПОВЕРНУТО ЯК БУЛО */}
           <picture className="absolute inset-0 w-full h-full">
             <source media="(min-width: 1024px)" srcSet="/desktop.jpg" />
             <source media="(min-width: 640px)" srcSet="/tablet.jpg" />
@@ -80,13 +93,10 @@ export default async function Home({
             />
           </picture>
 
-          {/* ШАР ЗАТЕМНЕННЯ */}
           <div className="absolute inset-0 bg-black/25" /> 
 
-          {/* КОНТЕНТ ПОВЕРХ */}
           <div className="relative z-10 flex flex-col items-center text-center px-4 w-full max-w-7xl mx-auto">
             
-            {/* ЛОГОТИП */}
             <div className="flex flex-col items-center space-y-2 mb-6 drop-shadow-xl">
               <h1 className="text-6xl sm:text-8xl font-black tracking-[0.2em] text-white uppercase">
                 OSELIA<span className="text-indigo-600">.</span>
@@ -96,14 +106,12 @@ export default async function Home({
               </p>
             </div>
 
-            {/* СЛОГАН */}
             <p className="text-white/90 font-medium text-lg max-w-2xl leading-relaxed mb-8 drop-shadow-md">
               {isBrowsing 
                 ? "Результати пошуку за вашим запитом" 
                 : "Створюємо атмосферу, в яку хочеться повертатися."}
             </p>
 
-            {/* ПОШУК */}
             <form action="/" className="relative w-full max-w-xl group">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
               <input
@@ -118,12 +126,12 @@ export default async function Home({
         </div>
       </header>
 
-      {/* КОНТЕНТНИЙ БЛОК */}
+      {/* КОНТЕНТ */}
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 py-16">
-        {/* Sidebar з категоріями */}
         <CategorySidebar 
           categoryTree={categoryTree} 
-          currentCategoryId={categoryId} 
+          subCategories={allSubCategories} // Тепер передаємо підкатегорії
+          currentCategoryId={subCategoryId || categoryId} 
           query={query} 
         />
 

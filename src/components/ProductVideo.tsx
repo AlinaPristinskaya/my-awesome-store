@@ -2,8 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export default function ProductVideo({ videoUrl, className }: { videoUrl: string, className?: string }) {
+interface ProductVideoProps {
+  videoUrl: string;
+  className?: string;
+  onPlay?: () => void; // Додаємо цей проп для плавної появи
+}
+
+export default function ProductVideo({ videoUrl, className, onPlay }: ProductVideoProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [isIntersecting, setIsIntersecting] = useState(false);
 
   useEffect(() => {
@@ -14,7 +21,7 @@ export default function ProductVideo({ videoUrl, className }: { videoUrl: string
           observer.disconnect(); 
         }
       },
-      { threshold: 0.1, rootMargin: '150px' } 
+      { threshold: 0.1, rootMargin: '200px' } 
     );
 
     if (containerRef.current) observer.observe(containerRef.current);
@@ -23,27 +30,29 @@ export default function ProductVideo({ videoUrl, className }: { videoUrl: string
 
   if (!videoUrl) return null;
 
-  // du_5: беремо лише перші 5 секунд
-  // so_0: починаємо з 0-ї секунди
-  // c_scale,w_400: зменшуємо розмір до 400px (для мобілки/сітки)
-  const previewUrl = videoUrl.includes('cloudinary.com') 
-    ? videoUrl.replace('/upload/', '/upload/so_0,du_5,c_scale,w_400,q_auto:eco,f_auto,vc_auto/') 
+  // Оптимізація для Cloudinary: 
+  // e_loop:5 — повторення (або du_5 для обрізки)
+  // q_auto:low — максимально економимо твої ліміти/кредити
+  const optimizedVideoUrl = videoUrl.includes('cloudinary.com') 
+    ? videoUrl.replace('/upload/', '/upload/so_0,du_5,w_480,c_limit,q_auto:low,f_auto/') 
     : videoUrl;
 
   return (
     <div ref={containerRef} className={className}>
       {isIntersecting ? (
         <video
-          key={previewUrl}
-          src={previewUrl}
+          ref={videoRef}
+          key={optimizedVideoUrl}
+          src={optimizedVideoUrl}
           autoPlay
           loop
           muted
           playsInline
-          // Постер теж робимо легким (so_0 — перший кадр)
-          poster={previewUrl.replace('/video/upload/', '/video/upload/so_0/').replace('.mp4', '.jpg')}
+          // Прибираємо атрибут poster, щоб не викликати 404 
+          // Замість нього працюватиме картинка з ProductCard
+          onPlaying={onPlay} 
           className="w-full h-full object-cover"
-          preload="auto"
+          preload="metadata"
           style={{ pointerEvents: 'none' }}
         />
       ) : (

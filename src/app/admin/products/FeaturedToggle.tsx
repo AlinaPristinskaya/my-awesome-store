@@ -36,7 +36,21 @@ export default function FeaturedToggle({ productId, initialIsFeatured, toggleAct
       setIsLoading(false);
     }
   };
+// Функція для оновлення пріоритету
+  const updatePriority = async (id: string, priority: number) => {
+    await fetch(`/api/products/${id}/priority`, {
+      method: 'PATCH',
+      body: JSON.stringify({ priority }),
+    });
+  };
 
+  // Функція для перемикання вітрини (featured)
+  const toggleFeatured = async (id: string, currentStatus: boolean) => {
+    await fetch(`/api/products/${id}/featured`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isFeatured: !currentStatus }),
+    });
+  };
   return (
     <button 
       onClick={handleToggle}

@@ -97,6 +97,7 @@ model Category {
   children  Category[] @relation("CategoryToCategory")
 
   products  Product[]
+  subCategories SubCategory[]
 }
 
 model Product {
@@ -121,7 +122,24 @@ model Product {
   updatedAt   DateTime    @updatedAt
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  subCategoryId String?
+  subCategory   SubCategory? @relation(fields: [subCategoryId], references: [id])
+  isHidden   Boolean  @default(false)
   
+}
+
+model SubCategory {
+  id          String    @id @default(cuid())
+  name        String    // Назва (напр. "Килимки 60x100")
+  slug        String    @unique
+  imageUrl    String?   // Для тих самих "плиточок"
+  priority    Int       @default(0) // Щоб сортувати самі підкатегорії
+  
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  
+  products    Product[] // Зв'язок з товарами
+  createdAt   DateTime  @default(now())
 }
 
 // ---------------------------------------------------------
