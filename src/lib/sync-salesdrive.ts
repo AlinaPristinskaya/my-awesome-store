@@ -27,7 +27,7 @@ export async function syncProductsFromXML() {
     let updatedProductsCount = 0;
     let newCategoriesNames: string[] = [];
     
-    // Отримуємо список відео з Cloudinary
+    // 1. Отримуємо список відео з Cloudinary
     let allVideos: { public_id: string; secure_url: string }[] = [];
     try {
       const result = await cloudinary.api.resources({ 
@@ -43,6 +43,7 @@ export async function syncProductsFromXML() {
       console.error("Cloudinary error:", e); 
     }
 
+    // 2. Отримуємо та парсимо XML
     const response = await fetch(XML_URL);
     const xmlData = await response.text();
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
@@ -54,14 +55,13 @@ export async function syncProductsFromXML() {
     const categoriesArray = Array.isArray(rawCategories) ? rawCategories : [rawCategories];
     const offersArray = Array.isArray(rawOffers) ? rawOffers : [rawOffers];
 
-    // 1. СИНХРОНІЗАЦІЯ КАТЕГОРІЙ (БЕЗ ЗАТИРАННЯ НАЗВ)
+    // 3. СИНХРОНІЗАЦІЯ КАТЕГОРІЙ
     for (const cat of categoriesArray) {
       const name = String(cat["#text"] || "Без назви");
       const idStr = String(cat.id);
       const parentIdStr = cat.parentId ? String(cat.parentId) : null;
       const slug = `${createSlug(name)}-${idStr}`;
 
-      // Перевіряємо, чи є категорія новою
       const existingCat = await prisma.category.findUnique({ where: { id: idStr } });
       if (!existingCat) {
         newCategoriesNames.push(name);
@@ -72,7 +72,7 @@ export async function syncProductsFromXML() {
         update: { 
           slug, 
           parentId: parentIdStr 
-          // name НЕ оновлюємо, щоб не затерти ручні правки в базі
+          // name не оновлюємо, щоб не затерти ручні назви в базі
         },
         create: { 
           id: idStr, 
@@ -83,12 +83,22 @@ export async function syncProductsFromXML() {
       });
     }
 
-    // 2. СИНХРОНІЗАЦІЯ ТОВАРІВ
+    // 4. СИНХРОНІЗАЦІЯ ТОВАРІВ
     for (const item of offersArray) {
       const idStr = String(item.id);
       const catIdStr = String(item.categoryId);
-      
       const vendorCode = item.vendorCode ? String(item.vendorCode) : null;
+      
+      // Логіка вибору мови: UA має пріоритет
+      const nameUA = item.name_ua ? String(item.name_ua).trim() : "";
+      const nameRU = item.name ? String(item.name).trim() : "";
+      const finalName = nameUA || nameRU || "Без назви";
+
+      const descUA = item.description_ua ? String(item.description_ua).trim() : "";
+      const descRU = item.description ? String(item.description).trim() : "";
+      const finalDescription = descUA || descRU || "";
+
+      // Пошук відео
       const cleanSkuForVideo = getCleanVideoName(vendorCode);
       const matchedVideo = allVideos.find(v => v.public_id.split('/').pop()?.toLowerCase() === cleanSkuForVideo);
       let imagesArray = Array.isArray(item.picture) ? item.picture.map((p: any) => String(p)) : (item.picture ? [String(item.picture)] : []);
@@ -97,30 +107,28 @@ export async function syncProductsFromXML() {
 
       if (existingProduct) {
         updatedProductsCount++;
-        // ОНОВЛЕННЯ (БЕЗ ЗАЧІПАННЯ ПІДКАТЕГОРІЙ)
         await prisma.product.update({
           where: { id: idStr },
           data: {
             sku: vendorCode,
-            name: String(item.name || "Без назви"),
-            description: String(item.description || ""),
+            name: finalName,
+            description: finalDescription,
             price: parseFloat(item.price) || 0,
             images: imagesArray,
             stock: (item.available === "true" || item.available === true) ? 99 : 0,
             categoryId: catIdStr,
-            // subCategoryId ТУТ НЕМАЄ - це захищає твій ручний вибір!
+            // subCategoryId НЕ оновлюємо тут, щоб зберегти твої ручні фільтри
             ...(matchedVideo ? { videoUrl: matchedVideo.secure_url } : {}),
           },
         });
       } else {
         newProductsCount++;
-        // СТВОРЕННЯ НОВОГО ТОВАРУ
         await prisma.product.create({
           data: {
             id: idStr,
             sku: vendorCode,
-            name: String(item.name || "Без назви"),
-            description: String(item.description || ""),
+            name: finalName,
+            description: finalDescription,
             price: parseFloat(item.price) || 0,
             images: imagesArray,
             videoUrl: matchedVideo ? matchedVideo.secure_url : null,
