@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import CategorySidebar from "@/components/CategorySidebar";
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function Home({
   searchParams,
@@ -13,90 +14,91 @@ export default async function Home({
   searchParams: Promise<{ categoryId?: string; subCategoryId?: string; query?: string }>;
 }) {
   const session = await auth();
-  const isAdmin = session?.user?.email?.toLowerCase() === "pristinskayaalina9@gmail.com";
+  const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
 
   const params = await searchParams;
-  const categoryId = params.categoryId;
-  const subCategoryId = params.subCategoryId; // Додаємо підтримку підкатегорії
-  const query = params.query;
+  const categoryId = params.categoryId || "";
+  const query = params.query || "";
 
-  // Отримуємо ВСІ дані
-  const [allCategories, allSubCategories] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: 'asc' } }),
-    prisma.subCategory.findMany()
+  // 1. Отримуємо дані
+  const [allCrmCategories, manualSubCategories] = await Promise.all([
+    prisma.category.findMany({ 
+      include: { _count: { select: { products: true } } } 
+    }),
+    prisma.subCategory.findMany({
+      include: { _count: { select: { products: true } } }
+    })
   ]);
 
-  const where: any = {};
-
-  // 1. Пошук
-  if (query) {
-    where.OR = [
-      { name: { contains: query, mode: 'insensitive' } },
-      { sku: { contains: query, mode: 'insensitive' } },
-    ];
-  } 
+  const rootCategories = allCrmCategories.filter(cat => !cat.parentId);
   
-  // 2. Фільтрація
-  if (subCategoryId) {
-    // Якщо вибрано вашу РУЧНУ підкатегорію
-    where.subCategoryId = subCategoryId;
+  // 2. Логіка фільтрації (ВИПРАВЛЕНО)
+  const where: any = { AND: [isAdmin ? {} : { isHidden: false }] };
+
+  if (query) {
+    where.AND.push({
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { sku: { contains: query, mode: 'insensitive' } },
+      ]
+    });
   } else if (categoryId) {
-    const selectedCategory = allCategories.find(c => c.id === categoryId);
-    if (selectedCategory) {
-      const childIds = allCategories
-        .filter(c => c.parentId === selectedCategory.id)
-        .map(c => c.id);
-      where.categoryId = { in: [selectedCategory.id, ...childIds] };
-    }
+    // Збираємо ID системних дітей
+    const childIds = allCrmCategories
+      .filter(c => c.parentId === categoryId || c.id === categoryId)
+      .map(c => c.id);
+
+    where.AND.push({
+      OR: [
+        { categoryId: { in: childIds } },   // Системні категорії
+        { subCategoryId: categoryId },      // Твоя ручна категорія (manual-...)
+        { subCategoryId: { in: childIds } } // Ручна, прив'язана до системної дитини
+      ]
+    });
   }
 
-  // 3. Вітрина
-  if (!query && !categoryId && !subCategoryId) {
-    where.isFeatured = true;
+  if (!query && !categoryId) {
+    where.AND.push({ isFeatured: true });
   }
 
   const products = await prisma.product.findMany({
     where, 
     include: { category: true },
-    orderBy: { priority: 'desc' } // Сортуємо за пріоритетом
+    orderBy: { priority: 'desc' }
   });
 
-  const isBrowsing = !!(categoryId || subCategoryId || query);
+  console.log("Знайдено товарів:", products.length, "для ID:", categoryId);
 
-  // Побудова дерева для Sidebar
+  // 3. Дерево для Sidebar
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
-  const rootCategories = allCategories.filter(cat => !cat.parentId);
-
   rootCategories.forEach(parent => {
     categoryTree[parent.name] = {
       id: parent.id,
-      children: allCategories
+      children: allCrmCategories
         .filter(child => child.parentId === parent.id)
-        .map(child => ({ ...child, displayName: child.name }))
+        .map(child => ({
+          ...child,
+          displayName: child.name,
+          count: child._count?.products || 0 
+        }))
     };
   });
 
+  const isBrowsing = !!(categoryId || query);
+
   return (
     <div className="min-h-screen bg-white text-black">
-      
-      {/* Твій оригінальний БАНЕР */}
+      {/* ТВІЙ ПОВНИЙ БАНЕР З КАРТИНКАМИ ТА СЛОГАНОМ */}
       <header className="w-full relative">
         <div className="relative w-full min-h-[500px] sm:min-h-[600px] flex items-center justify-center overflow-hidden">
-          
           <picture className="absolute inset-0 w-full h-full">
             <source media="(min-width: 1024px)" srcSet="/desktop.jpg" />
             <source media="(min-width: 640px)" srcSet="/tablet.jpg" />
-            <img 
-              src="/mobile.jpg" 
-              alt="OSELIA Banner" 
-              className="w-full h-full object-cover"
-            />
+            <img src="/mobile.jpg" alt="OSELIA Banner" className="w-full h-full object-cover" />
           </picture>
-
           <div className="absolute inset-0 bg-black/25" /> 
-
+          
           <div className="relative z-10 flex flex-col items-center text-center px-4 w-full max-w-7xl mx-auto">
-            
             <div className="flex flex-col items-center space-y-2 mb-6 drop-shadow-xl">
               <h1 className="text-6xl sm:text-8xl font-black tracking-[0.2em] text-white uppercase">
                 OSELIA<span className="text-indigo-600">.</span>
@@ -105,11 +107,9 @@ export default async function Home({
                 Мистецтво бути вдома
               </p>
             </div>
-
+            
             <p className="text-white/90 font-medium text-lg max-w-2xl leading-relaxed mb-8 drop-shadow-md">
-              {isBrowsing 
-                ? "Результати пошуку за вашим запитом" 
-                : "Створюємо атмосферу, в яку хочеться повертатися."}
+              {isBrowsing ? "Результати за вашим запитом" : "Створюємо атмосферу, в яку хочеться повертатися."}
             </p>
 
             <form action="/" className="relative w-full max-w-xl group">
@@ -126,12 +126,11 @@ export default async function Home({
         </div>
       </header>
 
-      {/* КОНТЕНТ */}
       <main className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-12 py-16">
         <CategorySidebar 
           categoryTree={categoryTree} 
-          subCategories={allSubCategories} // Тепер передаємо підкатегорії
-          currentCategoryId={subCategoryId || categoryId} 
+          subCategories={manualSubCategories as any} 
+          currentCategoryId={categoryId} 
           query={query} 
         />
 

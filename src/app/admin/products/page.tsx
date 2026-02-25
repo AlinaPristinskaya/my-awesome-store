@@ -15,42 +15,77 @@ export const dynamic = 'force-dynamic';
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string; categoryId?: string }>;
+  searchParams: Promise<{ query?: string; categoryId?: string; subCategoryId?: string }>;
 }) {
   const session = await auth();
   const params = await searchParams;
+  
   const query = params.query || "";
   const categoryId = params.categoryId || "";
+  const subCategoryId = params.subCategoryId || "";
 
   const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
   if (!isAdmin) redirect("/");
 
- // Оновлений фрагмент у src/app/admin/products/page.tsx
-const [categories, subCategories, products] = await Promise.all([
-  prisma.category.findMany({ orderBy: { name: 'asc' } }),
-  prisma.subCategory.findMany(),
-  prisma.product.findMany({
-    where: {
-      AND: [
-        categoryId ? { categoryId } : {},
-        query ? {
-          OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { sku: { contains: query, mode: 'insensitive' } },
-          ]
-        } : {}
+  // 1. Отримуємо всі категорії та підкатегорії з підрахунком товарів
+  const [categories, subCategories] = await Promise.all([
+    prisma.category.findMany({ 
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { products: true } // Підрахунок для CRM категорій
+        }
+      }
+    }),
+    prisma.subCategory.findMany({ 
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { products: true } // Підрахунок для ваших ручних підкатегорій
+        }
+      }
+    }),
+  ]);
+
+  // 2. Будуємо умови фільтрації для списку товарів
+  const where: any = { AND: [] };
+
+  if (query) {
+    where.AND.push({
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { sku: { contains: query, mode: 'insensitive' } },
       ]
-    },
+    });
+  }
+
+  if (subCategoryId) {
+    // Якщо обрана ручна підкатегорія
+    where.AND.push({ subCategoryId: subCategoryId });
+  } else if (categoryId) {
+    // Логіка для головної категорії + її дітей (SalesDrive)
+    const childIds = categories
+      .filter(c => c.parentId === categoryId)
+      .map(c => c.id);
+
+    where.AND.push({
+      OR: [
+        { categoryId: categoryId },
+        { categoryId: { in: childIds } }
+      ]
+    });
+  }
+
+  // 3. Завантажуємо самі товари
+  const products = await prisma.product.findMany({
+    where: where.AND.length > 0 ? where : {},
     include: { 
       category: true,
-      // Ми не можемо зробити include для subCategory, якщо це просто ID, 
-      // але ми можемо переконатися, що воно завантажується
     },
     orderBy: [{ priority: 'desc' }, { createdAt: "desc" }],
-  })
-]);
+  });
 
-  // Загружаем видео из Cloudinary (твой баннер и ролики)
+  // Завантажуємо відео з Cloudinary
   let allVideos: any[] = [];
   try {
     const result = await cloudinary.api.resources({ 
@@ -65,7 +100,7 @@ const [categories, subCategories, products] = await Promise.all([
     console.error("Cloudinary Error:", e); 
   }
 
-  // Формируем дерево для селектов
+  // Формуємо дерево категорій для Sidebar/Selects
   const categoryTree: Record<string, any> = {};
   categories.filter(c => !c.parentId).forEach(p => {
     categoryTree[p.name] = {
@@ -76,14 +111,16 @@ const [categories, subCategories, products] = await Promise.all([
       }))
     };
   });
-console.log("SERVER LOG - First product subCategory:", products[0]?.subCategoryId);
+
   return (
     <AdminProductsClient 
       initialProducts={products}
       categoryTree={categoryTree}
-      subCategories={subCategories}
-      allVideos={allVideos} // Видео на месте
+      subCategories={subCategories} // Тут уже об'єкти з _count всередині
+      categories={categories}       // Передаємо повний список з _count
+      allVideos={allVideos}
       categoryId={categoryId}
+      subCategoryId={subCategoryId}
       query={query}
     />
   );

@@ -16,18 +16,15 @@ import SubCategorySelect from "./SubCategorySelect";
 export default function AdminProductsClient({ 
   initialProducts, 
   categoryTree, 
-  subCategories, 
+  subCategories,
+  categories, 
   allVideos, 
   query, 
-  categoryId 
+  categoryId,
+  subCategoryId // ДОДАНО: тепер ми отримуємо цей пропс
 }: any) {
   const [activeTab, setActiveTab] = useState<'products' | 'subcategories'>('products');
   const router = useRouter();
-
-  const mainCategories = Object.keys(categoryTree).map(name => ({
-    id: categoryTree[name].id,
-    name: name
-  }));
 
   const updatePriority = async (id: string, priority: number) => {
     await fetch(`/api/products/${id}/priority`, {
@@ -47,8 +44,8 @@ export default function AdminProductsClient({
     router.refresh();
   };
 
-  // НОВА ФУНКЦІЯ: Приховування товару
   const toggleVisibility = async (id: string, currentIsHidden: boolean) => {
+    // ВАЖЛИВО: переконайтеся, що цей API роут існує
     await fetch(`/api/products/${id}/visibility`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -64,10 +61,16 @@ export default function AdminProductsClient({
           <div>
             <h1 className="text-6xl font-black tracking-tighter uppercase mb-6">Склад</h1>
             <div className="flex gap-4">
-              <button onClick={() => setActiveTab('products')} className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-black text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+              <button 
+                onClick={() => setActiveTab('products')} 
+                className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-black text-white' : 'bg-white text-gray-400 shadow-sm'}`}
+              >
                 Товари
               </button>
-              <button onClick={() => setActiveTab('subcategories')} className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'subcategories' ? 'bg-black text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+              <button 
+                onClick={() => setActiveTab('subcategories')} 
+                className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'subcategories' ? 'bg-black text-white' : 'bg-white text-gray-400 shadow-sm'}`}
+              >
                 Підкатегорії
               </button>
             </div>
@@ -75,7 +78,10 @@ export default function AdminProductsClient({
 
           {activeTab === 'products' && (
             <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
-              <CategoryFilter categories={mainCategories} currentCategoryId={categoryId} />
+     <CategoryFilter 
+  categories={categories || []} 
+  subCategories={subCategories || []}   
+/>
               <SyncButton />
               <Link href="/admin/products/new" className="bg-black text-white px-8 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Додати
@@ -104,13 +110,10 @@ export default function AdminProductsClient({
                   );
                   const parentData = parentName ? categoryTree[parentName] : null;
 
-                  // Тепер ми використовуємо ТІЛЬКИ список subCategories з бази (Neon)
-                  // Оскільки синхронізація вже записала туди CRM-категорії, дублів не буде
                   const filteredSubs = subCategories
                     .filter((s: any) => s.categoryId === parentData?.id)
                     .map((s: any) => ({ id: s.id, name: s.name }));
 
-                  // Визначаємо, чи товар потребує сортування (якщо категорія з CRM, але не вибрана підкатегорія)
                   const needsSorting = !product.subCategoryId;
 
                   return (
@@ -147,7 +150,7 @@ export default function AdminProductsClient({
                             productId={product.id} 
                             currentSubCategoryId={product.subCategoryId} 
                             manualSubCategories={filteredSubs}
-                            crmSubCategories={[]} // Ми залишаємо порожнім, бо всі категорії тепер у manualSubs
+                            crmSubCategories={[]} 
                           />
                         </div>
                       </td>
@@ -160,7 +163,6 @@ export default function AdminProductsClient({
                       <td className="p-8 text-right">
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex gap-2">
-                             {/* Кнопка Ігнорування (isHidden) */}
                             <button 
                               onClick={() => toggleVisibility(product.id, product.isHidden)}
                               className={`p-2 rounded-xl border transition-all ${product.isHidden ? 'bg-red-50 border-red-100 text-red-600' : 'bg-white border-gray-100 text-gray-400 hover:text-black'}`}

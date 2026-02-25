@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(
   req: Request,
@@ -8,22 +9,24 @@ export async function PATCH(
 ) {
   try {
     const session = await auth();
-    // Проверка прав (замени email на свой, если нужно)
     if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const { id } = await params;
-    const body = await req.json();
-    const { isHidden } = body;
+    const { isHidden } = await req.json();
 
-    const updatedProduct = await prisma.product.update({
-      where: { id: id },
-      data: { isHidden: isHidden }
+    const product = await prisma.product.update({
+      where: { id },
+      data: { isHidden }
     });
 
-    return NextResponse.json(updatedProduct);
+    // Оновлюємо кеш всюди
+    revalidatePath("/");
+    revalidatePath("/admin/products");
+
+    return NextResponse.json(product);
   } catch (error: any) {
-    return new NextResponse(error.message, { status: 500 });
+    return new NextResponse("Error", { status: 500 });
   }
 }

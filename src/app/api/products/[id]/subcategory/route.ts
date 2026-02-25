@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache"; // 1. Імпортуємо інструмент очищення кешу
 
 export async function PATCH(
   req: Request,
@@ -8,44 +9,29 @@ export async function PATCH(
 ) {
   try {
     const session = await auth();
-    const userEmail = session?.user?.email;
-    const isAdmin = userEmail === "pristinskayaalina9@gmail.com";
-
-    if (!isAdmin) {
+    // Перевірка на адміна (твій email)
+    if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // 1. Отримуємо id з параметрів (Next 15 потребує await)
-    const { id } = await params; 
-    
-    // 2. Отримуємо дані з тіла запиту
-    const body = await req.json();
-    const { subCategoryId } = body;
+    const { id } = await params;
+    const { subCategoryId } = await req.json();
 
-    console.log("LOG: Оновлюємо товар ID:", id, "на підкатегорію:", subCategoryId);
-
-    // 3. Оновлення в базі через Prisma
+    // Оновлюємо товар у базі
     const updatedProduct = await prisma.product.update({
-      where: { 
-        id: id 
-      },
+      where: { id: id },
       data: { 
-        subCategoryId: subCategoryId || null 
+        subCategoryId: subCategoryId ? subCategoryId : null 
       }
     });
 
+    // 2. ЦІ РЯДКИ ПЕРЕЗАВАНТАЖУЮТЬ КЕШ МИТТЄВО
+    revalidatePath("/"); // Оновлює головну сторінку
+    revalidatePath("/admin/products"); // Оновлює список в адмінці
+
     return NextResponse.json(updatedProduct);
   } catch (error: any) {
-    console.error("DATABASE UPDATE ERROR:", error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: "Internal Server Error", 
-        message: error.message 
-      }), 
-      { 
-        status: 500, 
-        headers: { 'Content-Type': 'application/json' } 
-      }
-    );
+    console.error("API Error:", error.message);
+    return new NextResponse(error.message, { status: 500 });
   }
 }
