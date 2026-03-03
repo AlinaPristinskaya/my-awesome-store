@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Додав useSearchParams для стабільності
 import { LayoutGrid, ChevronDown, ChevronRight, Filter, Sparkles } from "lucide-react";
 
 interface SubCategory {
@@ -22,44 +22,41 @@ export default function CategorySidebar({
   query?: string 
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
     if (nav?.type === 'reload' && window.location.search.includes('categoryId')) {
-      router.replace('/');
+      router.replace('/', { scroll: false });
     }
   }, [router]);
 
- useEffect(() => {
-  if (!currentCategoryId) {
-    setOpenMenus({});
-    return;
-  }
-  const newOpenState: Record<string, boolean> = {};
-  Object.keys(categoryTree).forEach(name => {
-    const cat = categoryTree[name];
-    // Перевіряємо, чи є категорія активною або чи є в ній активна підкатегорія
-    const hasActiveSub = subCategories?.some(s => s.id === currentCategoryId && s.categoryId === cat.id);
-    
-    if (cat.id === currentCategoryId || hasActiveSub) {
-      newOpenState[name] = true;
+  useEffect(() => {
+    if (!currentCategoryId) {
+      setOpenMenus({});
+      return;
     }
-  });
-  setOpenMenus(newOpenState);
-  
-  // ВИПРАВЛЕННЯ: використовуємо JSON.stringify для стабілізації масиву підкатегорій
-  // або просто довжину масиву, якщо ID стабільні
-}, [currentCategoryId, categoryTree, JSON.stringify(subCategories)]);
+    const newOpenState: Record<string, boolean> = {};
+    Object.keys(categoryTree).forEach(name => {
+      const cat = categoryTree[name];
+      const hasActiveSub = subCategories?.some(s => s.id === currentCategoryId && s.categoryId === cat.id);
+      
+      if (cat.id === currentCategoryId || hasActiveSub) {
+        newOpenState[name] = true;
+      }
+    });
+    setOpenMenus(newOpenState);
+  }, [currentCategoryId, categoryTree, JSON.stringify(subCategories)]);
 
+  // ГОЛОВНЕ ВИПРАВЛЕННЯ ТУТ: додано { scroll: false }
   const navigate = (id: string | null) => {
+    const currentQuery = query ? `&query=${query}` : '';
     if (!id) {
-      router.push('/');
+      router.push('/', { scroll: false });
     } else {
-      // Важливо: тепер ми завжди переходимо по categoryId, 
-      // бо ID підкатегорії і є ID категорії з CRM
-      router.push(`/?categoryId=${id}${query ? `&query=${query}` : ''}`);
+      router.push(`/?categoryId=${id}${currentQuery}`, { scroll: false });
     }
     setIsMobileMenuOpen(false);
   };
@@ -142,7 +139,10 @@ export default function CategorySidebar({
 
                   {manualSubs.length > 0 && (
                     <button 
-                      onClick={() => setOpenMenus(prev => ({ ...prev, [parentName]: !prev[parentName] }))}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Щоб не спрацьовував перехід при відкритті меню
+                        setOpenMenus(prev => ({ ...prev, [parentName]: !prev[parentName] }));
+                      }}
                       className="p-3 rounded-xl hover:bg-gray-200/50 transition-colors"
                     >
                       <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-600' : ''}`} />
@@ -163,7 +163,6 @@ export default function CategorySidebar({
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                             {/* Ви можете прибрати іконку Sparkles, якщо хочете ідентичний вигляд */}
                             <Sparkles className={`w-3 h-3 ${isChildActive ? 'text-indigo-600' : 'text-indigo-200'}`} />
                             {sub.name}
                           </div>
