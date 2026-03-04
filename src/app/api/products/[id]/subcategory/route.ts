@@ -9,29 +9,33 @@ export async function PATCH(
 ) {
   try {
     const session = await auth();
-    // Перевірка на адміна (твій email)
-    if (session?.user?.email !== "pristinskayaalina9@gmail.com") {
+    const { id } = await params; // Обов'язково await для Next.js 15
+
+    // Гнучка перевірка: або роль ADMIN, або твій особистий email
+    const isAdmin = 
+      (session?.user as any)?.role === "ADMIN" || 
+      session?.user?.email === "pristinskayaalina9@gmail.com";
+    
+    if (!isAdmin) {
+      console.log("Відмова у доступі для:", session?.user?.email); // Для відладки в логах Vercel
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { id } = await params;
     const { subCategoryId } = await req.json();
 
-    // Оновлюємо товар у базі
-    const updatedProduct = await prisma.product.update({
+    const product = await prisma.product.update({
       where: { id: id },
       data: { 
-        subCategoryId: subCategoryId ? subCategoryId : null 
+        subCategoryId: subCategoryId || null 
       }
     });
 
-    // 2. ЦІ РЯДКИ ПЕРЕЗАВАНТАЖУЮТЬ КЕШ МИТТЄВО
-    revalidatePath("/"); // Оновлює головну сторінку
-    revalidatePath("/admin/products"); // Оновлює список в адмінці
-
-    return NextResponse.json(updatedProduct);
-  } catch (error: any) {
-    console.error("API Error:", error.message);
-    return new NextResponse(error.message, { status: 500 });
+    // Оновлюємо кеш
+    revalidatePath("/admin/products");
+    
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error("Subcategory Update Error:", error);
+    return new NextResponse("Error", { status: 500 });
   }
 }
