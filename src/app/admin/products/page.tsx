@@ -24,16 +24,18 @@ export default async function AdminProductsPage({
   const categoryId = params.categoryId || "";
   const subCategoryId = params.subCategoryId || "";
 
+  // Перевірка прав доступу
   const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
   if (!isAdmin) redirect("/");
 
-  // 1. Отримуємо всі категорії та підкатегорії з підрахунком товарів
+  // 1. Отримуємо всі категорії (CRM) та підкатегорії (Front) з підрахунком товарів
+  // Ми не додаємо де filter { isHidden: false }, щоб в адмінці бачити реальні залишки
   const [categories, subCategories] = await Promise.all([
     prisma.category.findMany({ 
       orderBy: { name: 'asc' },
       include: {
         _count: {
-          select: { products: true } // Підрахунок для CRM категорій
+          select: { products: true }
         }
       }
     }),
@@ -41,17 +43,19 @@ export default async function AdminProductsPage({
       orderBy: { name: 'asc' },
       include: {
         _count: {
-          select: { products: true } // Підрахунок для ваших ручних підкатегорій
+          select: { products: true }
         }
       }
     }),
   ]);
 
-  // 2. Будуємо умови фільтрації для списку товарів
-  const where: any = { AND: [] };
+  // 2. Будуємо умови фільтрації
+  // ВАЖЛИВО: Ми НЕ додаємо filter по isHidden, щоб бачити ПРИХОВАНІ товари в адмінці!
+  const where: any = {};
+  const andConditions: any[] = [];
 
   if (query) {
-    where.AND.push({
+    andConditions.push({
       OR: [
         { name: { contains: query, mode: 'insensitive' } },
         { sku: { contains: query, mode: 'insensitive' } },
@@ -60,15 +64,15 @@ export default async function AdminProductsPage({
   }
 
   if (subCategoryId) {
-    // Якщо обрана ручна підкатегорія
-    where.AND.push({ subCategoryId: subCategoryId });
+    // Фільтр за твоєю "красивою" підкатегорією
+    andConditions.push({ subCategoryId: subCategoryId });
   } else if (categoryId) {
-    // Логіка для головної категорії + її дітей (SalesDrive)
+    // Якщо вибрана головна категорія - показуємо її товари + товари її "дітей" з CRM
     const childIds = categories
       .filter(c => c.parentId === categoryId)
       .map(c => c.id);
 
-    where.AND.push({
+    andConditions.push({
       OR: [
         { categoryId: categoryId },
         { categoryId: { in: childIds } }
@@ -76,13 +80,22 @@ export default async function AdminProductsPage({
     });
   }
 
-  // 3. Завантажуємо самі товари
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
+  }
+
+  // 3. Завантажуємо товари з повною інформацією
   const products = await prisma.product.findMany({
-    where: where.AND.length > 0 ? where : {},
+    where,
     include: { 
       category: true,
+      subCategory: true, // Додаємо, щоб бачити назву підкатегорії в таблиці
     },
-    orderBy: [{ priority: 'desc' }, { createdAt: "desc" }],
+    // Пріоритет 1 (найвищий) буде зверху, потім найновіші
+    orderBy: [
+      { priority: 'desc' }, 
+      { createdAt: "desc" }
+    ],
   });
 
   // Завантажуємо відео з Cloudinary
@@ -100,7 +113,7 @@ export default async function AdminProductsPage({
     console.error("Cloudinary Error:", e); 
   }
 
-  // Формуємо дерево категорій для Sidebar/Selects
+  // Формуємо дерево категорій для Sidebar
   const categoryTree: Record<string, any> = {};
   categories.filter(c => !c.parentId).forEach(p => {
     categoryTree[p.name] = {
@@ -116,8 +129,8 @@ export default async function AdminProductsPage({
     <AdminProductsClient 
       initialProducts={products}
       categoryTree={categoryTree}
-      subCategories={subCategories} // Тут уже об'єкти з _count всередині
-      categories={categories}       // Передаємо повний список з _count
+      subCategories={subCategories}
+      categories={categories}
       allVideos={allVideos}
       categoryId={categoryId}
       subCategoryId={subCategoryId}

@@ -1,156 +1,120 @@
-"use server";
-
-import { XMLParser } from "fast-xml-parser";
 import { prisma } from "@/lib/prisma";
-import { v2 as cloudinary } from 'cloudinary';
+import { XMLParser } from "fast-xml-parser";
 
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-function createSlug(text: string) {
-  return text.toLowerCase().replace(/[^\w\u0400-\u04FF]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-const getCleanVideoName = (sku: string | null) => {
-  if (!sku) return null;
-  return sku.replace(/[\/\\*\s]/g, "-").toLowerCase();
+// Функція для створення Slug (людинозрозумілих посилань)
+const createSlug = (text: string) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\u0400-\u04FF]+/g, "-") // Замінює символи на дефіси, підтримує кирилицю
+    .replace(/^-+|-+$/g, "");             // Видаляє дефіси на початку та в кінці
 };
 
 export async function syncProductsFromXML() {
   const XML_URL = "https://chepuruxa20.salesdrive.me/export/yml/export.yml?publicKey=MqCSb6FMuRRTL6pBBUQcXn6wiDhhWMCShL1OX1jFCyFxmnuQeCEM8kHQN"; 
 
   try {
-    let newProductsCount = 0;
-    let updatedProductsCount = 0;
-    let newCategoriesNames: string[] = [];
+    console.log("--- 🚀 СТАРТ ПОВНОЇ РОЗУМНОЇ СИНХРОНІЗАЦІЇ ---");
     
-    // 1. Отримуємо список відео з Cloudinary
-    let allVideos: { public_id: string; secure_url: string }[] = [];
-    try {
-      const result = await cloudinary.api.resources({ 
-        resource_type: 'video', 
-        type: 'upload', 
-        max_results: 500 
-      });
-      allVideos = result.resources.map((r: any) => ({ 
-        public_id: r.public_id, 
-        secure_url: r.secure_url 
-      }));
-    } catch (e) { 
-      console.error("Cloudinary error:", e); 
-    }
-
-    // 2. Отримуємо та парсимо XML
     const response = await fetch(XML_URL);
+    if (!response.ok) throw new Error("Помилка завантаження XML");
     const xmlData = await response.text();
+    
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
     const jsonObj = parser.parse(xmlData);
     const shop = jsonObj.yml_catalog?.shop || jsonObj.shop;
     
-    const rawCategories = shop.categories?.category || [];
-    const rawOffers = shop.offers?.offer || [];
-    const categoriesArray = Array.isArray(rawCategories) ? rawCategories : [rawCategories];
-    const offersArray = Array.isArray(rawOffers) ? rawOffers : [rawOffers];
+    const categoriesArray = Array.isArray(shop.categories?.category) ? shop.categories.category : [shop.categories?.category];
+    const offersArray = Array.isArray(shop.offers?.offer) ? shop.offers.offer : [shop.offers?.offer];
 
-    // 3. СИНХРОНІЗАЦІЯ КАТЕГОРІЙ
+    // --- КРОК 1: ТАБЛИЦЯ Category (CRM Ієрархія для логіки) ---
+    console.log("📂 Етап 1: Оновлення ієрархії Category...");
     for (const cat of categoriesArray) {
-      const name = String(cat["#text"] || "Без назви");
       const idStr = String(cat.id);
-      const parentIdStr = cat.parentId ? String(cat.parentId) : null;
+      const name = String(cat["#text"] || "").trim();
       const slug = `${createSlug(name)}-${idStr}`;
-
-      const existingCat = await prisma.category.findUnique({ where: { id: idStr } });
-      if (!existingCat) {
-        newCategoriesNames.push(name);
-      }
 
       await prisma.category.upsert({
         where: { id: idStr },
-        update: { 
-          slug, 
-          parentId: parentIdStr 
-          // name не оновлюємо, щоб не затерти ручні назви в базі
-        },
-        create: { 
-          id: idStr, 
-          name, 
-          slug, 
-          parentId: parentIdStr 
-        },
+        update: { name, slug },
+        create: { id: idStr, name, slug }
       });
     }
 
-    // 4. СИНХРОНІЗАЦІЯ ТОВАРІВ
-    for (const item of offersArray) {
-      const idStr = String(item.id);
-      const catIdStr = String(item.categoryId);
-      const vendorCode = item.vendorCode ? String(item.vendorCode) : null;
-      
-      // Логіка вибору мови: UA має пріоритет
-      const nameUA = item.name_ua ? String(item.name_ua).trim() : "";
-      const nameRU = item.name ? String(item.name).trim() : "";
-      const finalName = nameUA || nameRU || "Без назви";
+    // Проставляємо parentId окремим циклом, щоб усі ID вже існували
+    for (const cat of categoriesArray) {
+      await prisma.category.update({
+        where: { id: String(cat.id) },
+        data: { parentId: cat.parentId ? String(cat.parentId) : null }
+      });
+    }
 
-      const descUA = item.description_ua ? String(item.description_ua).trim() : "";
-      const descRU = item.description ? String(item.description).trim() : "";
-      const finalDescription = descUA || descRU || "";
+    // --- КРОК 2: ТАБЛИЦЯ subCategory (Фронтенд + Твої назви) ---
+    console.log("🎨 Етап 2: Синхронізація підкатегорій для фронтенду...");
+    const crmSubCats = categoriesArray.filter((c: any) => c.parentId);
 
-      // Пошук відео
-      const cleanSkuForVideo = getCleanVideoName(vendorCode);
-      const matchedVideo = allVideos.find(v => v.public_id.split('/').pop()?.toLowerCase() === cleanSkuForVideo);
-      let imagesArray = Array.isArray(item.picture) ? item.picture.map((p: any) => String(p)) : (item.picture ? [String(item.picture)] : []);
+    for (const cat of crmSubCats) {
+      const idStr = String(cat.id);
+      const nameFromCRM = String(cat["#text"] || "").trim();
+      const slug = `${createSlug(nameFromCRM)}-${idStr}`;
 
-      const existingProduct = await prisma.product.findUnique({ where: { id: idStr } });
+      // Перевіряємо, чи вже є така підкатегорія в таблиці subCategory
+      const existing = await prisma.subCategory.findUnique({ where: { id: idStr } });
 
-      if (existingProduct) {
-        updatedProductsCount++;
-        await prisma.product.update({
-          where: { id: idStr },
-          data: {
-            sku: vendorCode,
-            name: finalName,
-            description: finalDescription,
-            price: parseFloat(item.price) || 0,
-            images: imagesArray,
-            stock: (item.available === "true" || item.available === true) ? 99 : 0,
-            categoryId: catIdStr,
-            // subCategoryId НЕ оновлюємо тут, щоб зберегти твої ручні фільтри
-            ...(matchedVideo ? { videoUrl: matchedVideo.secure_url } : {}),
-          },
-        });
-      } else {
-        newProductsCount++;
-        await prisma.product.create({
+      if (!existing) {
+        console.log(`✨ Створюємо нову підкатегорію для фронту: ${nameFromCRM}`);
+        await prisma.subCategory.create({
           data: {
             id: idStr,
-            sku: vendorCode,
-            name: finalName,
-            description: finalDescription,
-            price: parseFloat(item.price) || 0,
-            images: imagesArray,
-            videoUrl: matchedVideo ? matchedVideo.secure_url : null,
-            stock: (item.available === "true" || item.available === true) ? 99 : 0,
-            categoryId: catIdStr,
-            isHidden: false,
-          },
+            name: nameFromCRM,
+            slug: slug, // Тепер slug передається обов'язково
+            categoryId: String(cat.parentId)
+          }
         });
       }
+      // Якщо підкатегорія вже є — ми її НЕ чіпаємо, щоб зберегти твої ручні зміни назви
+    }
+
+    // --- КРОК 3: ТОВАРИ ---
+    console.log("📦 Етап 3: Оновлення товарів...");
+    let updatedCount = 0;
+
+    for (const item of offersArray) {
+      const idStr = String(item.id);
+      const catId = String(item.categoryId);
+
+      // Отримуємо інформацію про категорію з бази, щоб знати, чи є вона підкатегорією
+      const catInfo = await prisma.category.findUnique({ where: { id: catId } });
+      
+      const productData = {
+        sku: String(item.vendorCode || ""),
+        name: String(item.name_ua || item.name || "").trim(),
+        description: String(item.description_ua || item.description || "").trim(),
+        price: parseFloat(item.price) || 0,
+        categoryId: catId,
+        // Якщо категорія в CRM має батька, записуємо її ID як subCategoryId для сумісності з твоїм фронтендом
+        subCategoryId: catInfo?.parentId ? catId : null, 
+        stock: (item.available === "true" || item.available === true) ? 99 : 0,
+        images: Array.isArray(item.picture) ? item.picture.map(String) : (item.picture ? [String(item.picture)] : []),
+      };
+
+      await prisma.product.upsert({
+        where: { id: idStr },
+        update: productData,
+        create: { ...productData, id: idStr, isHidden: false }
+      });
+      updatedCount++;
     }
 
     return { 
       success: true, 
-      message: `Синхронізація успішна! Нових: ${newProductsCount}, Оновлено: ${updatedProductsCount}`,
-      details: {
-        newProducts: newProductsCount,
-        updated: updatedProductsCount,
-        newCats: newCategoriesNames
-      }
+      message: "Синхронізація виконана успішно",
+      details: { updated: updatedCount, totalCats: categoriesArray.length }
     };
+
   } catch (error: any) {
-    console.error("Sync Error:", error);
+    console.error("❌ ПОМИЛКА СИНХРОНІЗАЦІЇ:", error.message);
     return { success: false, error: error.message };
   }
 }

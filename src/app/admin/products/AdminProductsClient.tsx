@@ -27,7 +27,7 @@ export default function AdminProductsClient({
   const router = useRouter();
 
   const updatePriority = async (id: string, priority: number) => {
-    await fetch(`/api/products/${id}/priority`, {
+    await fetch(`/api/products/${encodeURIComponent(id)}/priority`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ priority }),
@@ -36,7 +36,7 @@ export default function AdminProductsClient({
   };
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
-    await fetch(`/api/products/${id}/featured`, {
+    await fetch(`/api/products/${encodeURIComponent(id)}/featured`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isFeatured: !currentStatus }),
@@ -46,7 +46,7 @@ export default function AdminProductsClient({
 
   const toggleVisibility = async (id: string, currentIsHidden: boolean) => {
     // ВАЖЛИВО: переконайтеся, що цей API роут існує
-    await fetch(`/api/products/${id}/visibility`, {
+    await fetch(`/api/products/${encodeURIComponent(id)}/visibility`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isHidden: !currentIsHidden }),
@@ -155,10 +155,10 @@ export default function AdminProductsClient({
                         </div>
                       </td>
                       <td className="p-8 text-center">
-                        <PriorityToggle productId={product.id} currentPriority={product.priority || 1} updateAction={updatePriority} />
+                        <PriorityToggle productId={product.id} currentPriority={product.priority || 1} />
                       </td>
                       <td className="p-8 text-center">
-                        <FeaturedToggle productId={product.id} initialIsFeatured={product.isFeatured} toggleAction={toggleFeatured} />
+                        <FeaturedToggle productId={product.id} initialIsFeatured={product.isFeatured} />
                       </td>
                       <td className="p-8 text-right">
                         <div className="flex flex-col items-end gap-2">

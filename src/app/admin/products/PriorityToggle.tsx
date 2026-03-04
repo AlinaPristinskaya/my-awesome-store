@@ -6,35 +6,51 @@ import { useRouter } from 'next/navigation';
 interface PriorityToggleProps {
   productId: string;
   currentPriority: number;
-  updateAction: (id: string, priority: number) => Promise<void>;
 }
 
 export default function PriorityToggle({ 
   productId, 
-  currentPriority, 
-  updateAction 
+  currentPriority 
 }: PriorityToggleProps) {
   const [loading, setLoading] = useState(false);
+  const [localPriority, setLocalPriority] = useState(currentPriority);
   const router = useRouter();
 
   const handleUpdate = async (val: number) => {
-    if (val === currentPriority) return;
+    if (val === localPriority || loading) return;
+    
     setLoading(true);
-    await updateAction(productId, val);
-    setLoading(false);
-    router.refresh();
+    setLocalPriority(val); // Оптимістичне оновлення
+
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(productId)}/priority`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: val }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update");
+      
+      router.refresh();
+    } catch (error) {
+      setLocalPriority(currentPriority); // Відкат при помилці
+      console.error("Priority update error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className={`flex gap-1 items-center ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`flex gap-1 items-center justify-center ${loading ? 'opacity-70' : ''}`}>
       {[1, 2, 3].map((val) => (
         <button
           key={val}
           onClick={() => handleUpdate(val)}
+          disabled={loading}
           className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all border-2 ${
-            currentPriority === val 
-              ? 'bg-indigo-600 border-indigo-600 text-white shadow-md scale-110' 
-              : 'bg-white border-gray-100 text-gray-400 hover:border-indigo-200'
+            localPriority === val 
+              ? 'bg-black border-black text-white shadow-md scale-110' 
+              : 'bg-white border-gray-100 text-gray-400 hover:border-black/20'
           }`}
         >
           {val}

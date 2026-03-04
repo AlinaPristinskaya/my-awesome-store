@@ -7,11 +7,9 @@ import { useRouter } from "next/navigation";
 interface FeaturedToggleProps {
   productId: string;
   initialIsFeatured: boolean;
-  // Ми передамо серверне дію як пропс або зробимо fetch
-  toggleAction: (id: string, currentStatus: boolean) => Promise<void>;
 }
 
-export default function FeaturedToggle({ productId, initialIsFeatured, toggleAction }: FeaturedToggleProps) {
+export default function FeaturedToggle({ productId, initialIsFeatured }: FeaturedToggleProps) {
   const [isFeatured, setIsFeatured] = useState(initialIsFeatured);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -19,44 +17,34 @@ export default function FeaturedToggle({ productId, initialIsFeatured, toggleAct
   const handleToggle = async () => {
     if (isLoading) return;
 
-    // 1. Оптимістично змінюємо стан (миттєво)
-    setIsFeatured(!isFeatured);
+    const newStatus = !isFeatured;
+    setIsFeatured(newStatus); // Оптимістичне оновлення
     setIsLoading(true);
 
     try {
-      // 2. Відправляємо запит на сервер
-      await toggleAction(productId, isFeatured);
-      // 3. Оновлюємо дані сторінки у фоні
-      router.refresh();
+      const res = await fetch(`/api/products/${encodeURIComponent(productId)}/featured`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFeatured: newStatus }),
+      });
+
+      if (!res.ok) throw new Error("Помилка сервера");
+      
+      router.refresh(); // Оновлюємо дані на сторінці
     } catch (error) {
-      // Якщо помилка — повертаємо як було
-      setIsFeatured(initialIsFeatured);
-      console.error("Помилка оновлення:", error);
+      setIsFeatured(initialIsFeatured); // Відкат при помилці
+      console.error("Помилка:", error);
     } finally {
       setIsLoading(false);
     }
   };
-// Функція для оновлення пріоритету
-  const updatePriority = async (id: string, priority: number) => {
-    await fetch(`/api/products/${id}/priority`, {
-      method: 'PATCH',
-      body: JSON.stringify({ priority }),
-    });
-  };
 
-  // Функція для перемикання вітрини (featured)
-  const toggleFeatured = async (id: string, currentStatus: boolean) => {
-    await fetch(`/api/products/${id}/featured`, {
-      method: 'PATCH',
-      body: JSON.stringify({ isFeatured: !currentStatus }),
-    });
-  };
   return (
     <button 
       onClick={handleToggle}
       disabled={isLoading}
       className={`p-2 rounded-full transition-all active:scale-90 ${
-        isFeatured ? 'text-indigo-600' : 'text-gray-200 hover:text-gray-400'
+        isFeatured ? 'text-amber-500' : 'text-gray-200 hover:text-gray-400'
       }`}
     >
       <Star className={`w-6 h-6 ${isFeatured ? 'fill-current' : ''}`} />

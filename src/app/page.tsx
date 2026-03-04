@@ -32,42 +32,51 @@ export default async function Home({
 
   const rootCategories = allCrmCategories.filter(cat => !cat.parentId);
   
-  // 2. Логіка фільтрації (ВИПРАВЛЕНО)
-  const where: any = { AND: [isAdmin ? {} : { isHidden: false }] };
+  // 2. Логіка фільтрації
+  const andConditions: any[] = [];
+
+  // СТРОГИЙ ФІЛЬТР ДЛЯ КЛІЄНТІВ (якщо не адмін - приховані не існують)
+  if (!isAdmin) {
+    andConditions.push({ isHidden: false });
+  }
 
   if (query) {
-    where.AND.push({
+    andConditions.push({
       OR: [
         { name: { contains: query, mode: 'insensitive' } },
         { sku: { contains: query, mode: 'insensitive' } },
       ]
     });
   } else if (categoryId) {
-    // Збираємо ID системних дітей
     const childIds = allCrmCategories
       .filter(c => c.parentId === categoryId || c.id === categoryId)
       .map(c => c.id);
 
-    where.AND.push({
+    andConditions.push({
       OR: [
-        { categoryId: { in: childIds } },   // Системні категорії
-        { subCategoryId: categoryId },      // Твоя ручна категорія (manual-...)
-        { subCategoryId: { in: childIds } } // Ручна, прив'язана до системної дитини
+        { categoryId: { in: childIds } },
+        { subCategoryId: categoryId },
+        { subCategoryId: { in: childIds } }
       ]
     });
   }
 
+  // Якщо це головна сторінка (без пошуку і категорій) - показуємо Featured
   if (!query && !categoryId) {
-    where.AND.push({ isFeatured: true });
+    andConditions.push({ isFeatured: true });
   }
 
   const products = await prisma.product.findMany({
-    where, 
-    include: { category: true },
-    orderBy: { priority: 'desc' }
+    where: andConditions.length > 0 ? { AND: andConditions } : {}, 
+    include: { 
+      category: true,
+      subCategory: true // Додаємо для коректного відображення на фронті
+    },
+    orderBy: [
+      { priority: 'desc' },
+      { createdAt: 'desc' }
+    ]
   });
-
-  console.log("Знайдено товарів:", products.length, "для ID:", categoryId);
 
   // 3. Дерево для Sidebar
   const categoryTree: Record<string, { id: string, children: any[] }> = {};
@@ -88,7 +97,6 @@ export default async function Home({
 
   return (
     <div className="min-h-screen bg-white text-black">
-      {/* ТВІЙ ПОВНИЙ БАНЕР З КАРТИНКАМИ ТА СЛОГАНОМ */}
       <header className="w-full relative">
         <div className="relative w-full min-h-[500px] sm:min-h-[600px] flex items-center justify-center overflow-hidden">
           <picture className="absolute inset-0 w-full h-full">

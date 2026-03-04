@@ -10,18 +10,20 @@ export async function PATCH(
   try {
     const session = await auth();
     const isAdmin = (session?.user as any)?.role === "ADMIN" || session?.user?.email === "pristinskayaalina9@gmail.com";
+    
     if (!isAdmin) return new NextResponse("Unauthorized", { status: 401 });
 
     const { id } = await params;
-    const { isHidden } = await req.json(); // Переконайся, що назва поля збігається з компонентом
+    const { isFeatured } = await req.json();
 
     const product = await prisma.product.update({
       where: { id },
-      data: { isHidden: Boolean(isHidden) }
+      data: { isFeatured }
     });
 
     revalidatePath("/");
     revalidatePath("/admin/products");
+
     return NextResponse.json(product);
   } catch (error) {
     return new NextResponse("Error", { status: 500 });
